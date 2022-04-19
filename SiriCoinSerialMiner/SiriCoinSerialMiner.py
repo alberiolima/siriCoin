@@ -74,8 +74,8 @@ class SiriCoinMiner(object):
         tx = self.signer.signTransaction(self.priv_key, tx)        
         self.refresh()
         txid = self.requests.get(f"{self.node}/send/rawtransaction/?tx={json.dumps(tx).encode().hex()}").json().get("result")[0]
-        print(f"SYS Mined block {blockData['miningData']['proof']}")
-        print(f"Submitted in transaction {txid}")
+        print(f"[SYS] {Fore.GREEN}Mined block {blockData['miningData']['proof']}")
+        print(f"[ESP] {Fore.GREEN}Submitted in transaction {txid}")
         return txid
 
     def beaconRoot(self):        
@@ -94,7 +94,7 @@ class SiriCoinMiner(object):
             return f"{round(hashrate/1000000000, 2)}GH/s"
             
     def startMining(self):
-        print(f"SYS Started mining for {minerAddr}")
+        print(f"[SYS] {Fore.GREEN}Started mining for {minerAddr}")
         self.refresh()
         ser  = serial.Serial(f"{serialPort}", baudrate=115200, timeout=2.5)        
         proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"        
@@ -103,9 +103,9 @@ class SiriCoinMiner(object):
             self.refresh()                        
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
-                print(f"lastBlock  : {self_lastBlock}")
-                print(f"target     : {self.target}")
-                print(f"difficulty : {self.difficulty}")
+                print(f"{Fore.YELLOW}lastBlock  : {self_lastBlock}")
+                print(f"{Fore.YELLOW}target     : {self.target}")
+                print(f"{Fore.YELLOW}difficulty : {self.difficulty}")
             #self.timestamp = 1650303688
             bRoot = self.beaconRoot()                        
             ddata = f"{bRoot},{self.target},{tempoTrabalhar}\n"
