@@ -8,7 +8,14 @@ from colorama import Fore
 #change usb-serial port (baud=115200)
 serialPort = "/dev/ttyUSB0"
 
+#miner id
+minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
+
+#time job
 tempoTrabalhar = 20
+
+#server
+serverAddr = "http://138.197.181.206:5005/" #https://siricoin-node-1.dynamic-dns.net:5005/
 
 class SignatureManager(object):
     def __init__(self):
@@ -136,8 +143,5 @@ class SiriCoinMiner(object):
                         recebido = recebido + byte_lido.decode("utf-8")
 
 if __name__ == "__main__":
-    #minerAddr = input("Enter your SiriCoin address : ")    
-    #miner = SiriCoinMiner("https://siricoin-node-1.dynamic-dns.net:5005/", minerAddr)
-    minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
-    miner = SiriCoinMiner("http://138.197.181.206:5005/", minerAddr)
+    miner = SiriCoinMiner(serverAddr, minerAddr)
     miner.startMining()
