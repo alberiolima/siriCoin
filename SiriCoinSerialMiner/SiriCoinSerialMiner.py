@@ -121,16 +121,20 @@ class SiriCoinMiner(object):
             recebido = ""
             tempo_decorrido = tempoTrabalhar
             tinicial = time.time()
-            q_bytes = 0;
+            q_bytes = 0
+            self.nonce = 0
             while (time.time() - tinicial) < (tempoTrabalhar * 2):                
                 if (ser.in_waiting>0):
                     byte_lido = ser.read()
                     q_bytes = q_bytes + 1
                     if (byte_lido == b'\n'):						
                         ress = recebido.split(',')
-                        self.nonce = int(ress[0].rstrip())
-                        tempo_decorrido = round(int(ress[1].rstrip()) * 0.000001)
-                        proof = ress[2].rstrip()
+                        try:
+                            self.nonce = int(ress[0].rstrip())
+                            tempo_decorrido = round(int(ress[1].rstrip()) * 0.000001)
+                            proof = ress[2].rstrip()
+                        except:							
+                            print(f"invalid data: {recebido}")
                         recebido = ""
                         print(f"SYS {self.timestamp} Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
                         if (q_bytes>32):
