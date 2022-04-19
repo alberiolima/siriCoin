@@ -13,3 +13,5 @@ send (beaconRoot,target):
 
 receive(nonce,elapsed time, prof):
 117596,13663912,0x000000326a773eee191da945f718e32acd56fbf59ecc8d13765650b464c32303
+
+>6KH/s
