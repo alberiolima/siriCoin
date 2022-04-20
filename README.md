@@ -8,7 +8,7 @@
     ╚═════╝░╚═╝╚═╝░░╚═╝╚═╝░░░░░░░╚════╝░░╚════╝░╚═╝╚═╝░░╚══╝
   Official code for ESP 32 and 8266 boards                 version 1.0
   
-  Siri-Coin Team & Community 2021-2022 © MIT Licensed
+  Siri-Coin Team & Community 2021-2022 © MIT Licensed <br>
   WEBSITE:https://siricoin.tech <br>
   BLOG:https://blog.siricoin.tech <br>
   DOCS:https://docs.siricoin.tech <br>
