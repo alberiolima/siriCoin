@@ -15,7 +15,8 @@ minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
 tempoTrabalhar = 20
 
 #server
-serverAddr = "http://138.197.181.206:5005/" #https://siricoin-node-1.dynamic-dns.net:5005/
+#serverAddr = "http://138.197.181.206:5005/" 
+serverAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
 
 class SignatureManager(object):
     def __init__(self):
@@ -78,15 +79,15 @@ class SiriCoinMiner(object):
     def submitBlock(self, blockData):
         data = json.dumps({"from": self.acct.address, "to": self.acct.address, "tokens": 0, "parent": self.lastSentTx, "blockData": blockData, "epoch": self.lastBlock, "type": 1})
         tx = {"data": data}
-        tx = self.signer.signTransaction(self.priv_key, tx)        
+        tx = self.signer.signTransaction(self.priv_key, tx)
         self.refresh()
         txid = self.requests.get(f"{self.node}/send/rawtransaction/?tx={json.dumps(tx).encode().hex()}").json().get("result")[0]
         print(f"SYS Mined block {blockData['miningData']['proof']}")
         print(f"Submitted in transaction {txid}")
         return txid
 
-    def beaconRoot(self):        
-        messagesHash = w3.keccak(self.messages)        
+    def beaconRoot(self):
+        messagesHash = w3.keccak(self.messages)
         bRoot = w3.soliditySha3(["bytes32", "uint256", "bytes32","address"], [self.lastBlock, self.timestamp, messagesHash, self.rewardsRecipient]) # parent PoW hash (bytes32), beacon's timestamp (uint256), hash of messages (bytes32), beacon miner (address)
         return bRoot.hex()
 
@@ -103,37 +104,36 @@ class SiriCoinMiner(object):
     def startMining(self):
         print(f"SYS Started mining for {minerAddr}")
         self.refresh()
-        ser  = serial.Serial(f"{serialPort}", baudrate=115200, timeout=2.5)        
-        proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"        
+        ser  = serial.Serial(f"{serialPort}", baudrate=115200, timeout=2.5)
+        proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         self_lastBlock = ""
         while True:
-            self.refresh()                        
+            self.refresh()
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
                 print(f"lastBlock  : {self_lastBlock}")
                 print(f"target     : {self.target}")
                 print(f"difficulty : {self.difficulty}")
-            #self.timestamp = 1650303688
-            bRoot = self.beaconRoot()                        
+            bRoot = self.beaconRoot()
             ddata = f"{bRoot},{self.target},{tempoTrabalhar}\n"
             ser.flush()
-            ser.write(ddata.encode('ascii'))            
+            ser.write(ddata.encode('ascii'))
             recebido = ""
             tempo_decorrido = tempoTrabalhar
-            tinicial = time.time()
             q_bytes = 0
             self.nonce = 0
-            while (time.time() - tinicial) < (tempoTrabalhar * 2):                
+            tinicial = time.time()
+            while (time.time() - tinicial) < (tempoTrabalhar * 2):
                 if (ser.in_waiting>0):
                     byte_lido = ser.read()
                     q_bytes = q_bytes + 1
-                    if (byte_lido == b'\n'):						
+                    if (byte_lido == b'\n'):
                         ress = recebido.split(',')
                         try:
                             self.nonce = int(ress[0].rstrip())
                             tempo_decorrido = round(int(ress[1].rstrip()) * 0.000001)
                             proof = ress[2].rstrip()
-                        except:							
+                        except:
                             print(f"invalid data: {recebido}")
                         recebido = ""
                         print(f"SYS {self.timestamp} Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
