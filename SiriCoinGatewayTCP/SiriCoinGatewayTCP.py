@@ -1,10 +1,20 @@
+###### TEST ######### TEST ########### TEST #############
+### INCOMPLET
+import time
 import socketserver
+import importlib
+from web3.auto import w3
+from eth_account.account import Account
+from eth_account.messages import encode_defunct
 
 # Create the server, binding to localhost on port 9999
-HOST, PORT = "localhost", 9999
+HOST, PORT = "192.168.1.36", 9999
 
 #time job
 tempoTrabalhar = 20
+
+#miner id
+minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
 
 #server
 serverAddr = "http://138.197.181.206:5005/" #https://siricoin-node-1.dynamic-dns.net:5005/
@@ -35,31 +45,58 @@ class SignatureManager(object):
         self.verified += int(result)
         return result
 
-class MyTCPHandler(socketserver.BaseRequestHandler):
-    """
-    The request handler class for our server.
+class SiriCoinMiner(object):
+    def __init__(self, NodeAddr):
+        # self.chain = BeaconChain()
+        self.requests = importlib.import_module("requests")        
+        self.node = NodeAddr
+        self.signer = SignatureManager()        
+        self.proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        self.nonce = 0
+    
+    def refreshBlock(self):
+        info = self.requests.get(f"{self.node}/chain/miningInfo").json().get("result")
+        self.target = info["target"]
+        self.difficulty = info["difficulty"]
+        self.lastBlock = info["lastBlockHash"]
+        self.timestamp = int(time.time())
+    
+    def beaconRoot(self, minerID):
+        rewardsRecipient = w3.toChecksumAddress(minerID)
+        messagesHash = w3.keccak(b"null")
+        bRoot = w3.soliditySha3(["bytes32", "uint256", "bytes32","address"], [self.lastBlock, self.timestamp, messagesHash, rewardsRecipient]) # parent PoW hash (bytes32), beacon's timestamp (uint256), hash of messages (bytes32), beacon miner (address)
+        return bRoot.hex()
 
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
-    """
+    def startMining(self):        
+        with socketserver.TCPServer((HOST, PORT), MyTCPHandler) as server:
+            # Activate the server; this will keep running until you
+            # interrupt the program with Ctrl-C
+            print(f"Started gateway {HOST}:{PORT}")
+            server.serve_forever()
+        
+
+class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
-		# Here
-		# It's the same thing that the serial miner does, only I wear TCP instead of USB
-		#
-		#
-        
-        # self.request is the TCP socket connected to the client
-        self.data = self.request.recv(1024).strip()
         print("{} wrote:".format(self.client_address[0]))
+        self.data = str(self.request.recv(1024).strip(), "utf-8")
         print(self.data)
-        # just send back the same data, but upper-cased
-        self.request.sendall(self.data.upper())
+        cmd = self.data.split(',')
+        if (cmd[0] == "$REQJOB"):
+            print("Send job")
+            miner.refreshBlock()
+            pacq = miner.beaconRoot(minerAddr) + "," + miner.target + "," + "30\n"
+            self.request.sendall(bytes(pacq,'UTF-8'))
+        elif (cmd[0] == "$RESULT"):
+            try:
+                miner.nonce = int(cmd[1].rstrip())
+                #tempo_decorrido = round(int(cmd[2].rstrip()) * 0.000001)
+                miner.proof = cmd[3].rstrip()
+                #miner.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": self.proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
+            except:
+                print(f"invalid data: {self.data}")
+            
 
 if __name__ == "__main__":        
-    with socketserver.TCPServer((HOST, PORT), MyTCPHandler) as server:
-        # Activate the server; this will keep running until you
-        # interrupt the program with Ctrl-C
-        print(f"Iniciando servidor {HOST}:{PORT}")
-        server.serve_forever()
+    miner = SiriCoinMiner(serverAddr)
+    miner.startMining() 
