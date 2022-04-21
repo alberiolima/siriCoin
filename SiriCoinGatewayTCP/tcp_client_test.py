@@ -13,5 +13,3 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
     # Receive data from the server and shut down
     received = str(sock.recv(300), "utf-8")
     print(f"jobrecv: {received}")
-    
-    HOST, PORT = sock.getpeername()
