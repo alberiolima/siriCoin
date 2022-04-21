@@ -8,6 +8,7 @@ from web3.auto import w3
 from eth_account.account import Account
 from eth_account.messages import encode_defunct
 from colorama import Fore
+from random import randrange
 
 # Create the server, binding to localhost on port 9999
 #HOST, PORT = "localhost", 9999
@@ -21,6 +22,7 @@ minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
 
 #server
 serverAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
+#serverAddr = "http://138.197.181.206:5005/" 
 
 class SignatureManager(object):
     def __init__(self):
@@ -49,17 +51,19 @@ class SignatureManager(object):
         return result
 
 class SiriCoinMiner(object):
-    def __init__(self, NodeAddr):
+    def __init__(self, NodeAddr, RewardsRecipient):
         # self.chain = BeaconChain()
         self.requests = importlib.import_module("requests")        
         self.node = NodeAddr
         self.signer = SignatureManager()        
         self.proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         self.nonce = 0
-        self.rewardsRecipient = w3.toChecksumAddress(minerAddr)
+        self.rewardsRecipient = w3.toChecksumAddress(RewardsRecipient)
         self.priv_key = w3.solidityKeccak(["string", "address"], ["SiriCoin Will go to MOON - Just a disposable key", self.rewardsRecipient])
         self.acct = w3.eth.account.from_key(self.priv_key)
         self.messages = b"null"
+        self.timestamp = int(time.time())
+        self.difficulty = 1
     
     def refreshBlock(self):
         info = self.requests.get(f"{self.node}/chain/miningInfo").json().get("result")
@@ -77,7 +81,11 @@ class SiriCoinMiner(object):
         resp_req = self.requests.get(f"{self.node}/send/rawtransaction/?tx={json.dumps(tx).encode().hex()}")
         txid = ""
         if (resp_req.status_code != 500 ):
-            txid = resp_req.json().get("result")[0]        
+            txid = resp_req.json().get("result")[0]
+        else:
+            print("<tx>")
+            print(json.dumps(tx).encode().hex())
+            print("</tx>")
         print(f"SYS Mined block {blockData['miningData']['proof']}")
         print(f"Submitted in transaction {txid}")
         return txid
@@ -98,37 +106,40 @@ class SiriCoinMiner(object):
         elif hashrate < 1000000000000:
             return f"{round(hashrate/1000000000, 2)}GH/s"    
 
-    def startMining(self):        
-        try:
-            server()
-        except KeyboardInterrupt:
-            print("Keyboard interrupt")
-
 def handle_client(conn, address):
-    print("{} Connected".format(address[0]))
+    print("Connected to {}".format(address[0]))
     tempo_decorrido = 30
     connTemp = time.time()
-    while (time.time() - connTemp < tempoTrabalhar * 2):
+    minerID = minerAddr
+    miner = SiriCoinMiner(serverAddr,minerID)
+    while (time.time() - connTemp < (tempoTrabalhar * 2)):
         data = str(conn.recv(300).strip(), "utf-8")    
         if (len(data) > 0):
             connTemp = time.time()
             #print("{} wrote: ".format(address[0])+data)
             cmd = data.split(',')
             if (cmd[0] == "$REQJOB"):
-                print("{} send job".format(address[0]))
+                time.sleep(randrange(5))
+                if ( cmd[1].rstrip() != minerID ):
+                    if ( cmd[1].rstrip() != "0x0" ):
+                        minerID = cmd[1].rstrip()
+                        miner = SiriCoinMiner(serverAddr,minerID)
                 miner.refreshBlock()
-                pacq = miner.beaconRoot(minerAddr) + "," + miner.target + "," + str(tempoTrabalhar) + "\n"
+                print(f"Send job {miner.timestamp}" +  " to {}".format(address[0]))
+                pacq = miner.beaconRoot(minerAddr) + "," + miner.target + "," + str(randrange(10,tempoTrabalhar)) + "\n"
                 conn.sendall(bytes(pacq,"utf-8"))
             elif (cmd[0] == "$RESULT"):
-                print("{} recv result".format(address[0]))
+                print("Recv result from {}".format(address[0]))
+                miner.proof = "0x0"
                 try:
                     miner.nonce = int(cmd[1].rstrip())
                     tempo_decorrido = round(int(cmd[2].rstrip()) * 0.000001)
                     miner.proof = cmd[3].rstrip()
-                    print(f"Last {round(tempo_decorrido,2)} seconds hashrate : {miner.formatHashrate((miner.nonce / tempo_decorrido))}")
-                    miner.submitBlock({"miningData" : {"miner": miner.rewardsRecipient,"nonce": miner.nonce,"difficulty": miner.difficulty,"miningTarget": miner.target,"proof": miner.proof}, "parent": miner.lastBlock,"messages": miner.messages.hex(), "timestamp": miner.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
+                    print(f"Last {round(tempo_decorrido,2)} seconds hashrate : {miner.formatHashrate((miner.nonce / tempo_decorrido))}")                    
                 except:
                     print(f"invalid data: {data}")
+                if ( miner.proof != "0x0"):
+                    miner.submitBlock({"miningData" : {"miner": miner.rewardsRecipient,"nonce": miner.nonce,"difficulty": miner.difficulty,"miningTarget": miner.target,"proof": miner.proof}, "parent": miner.lastBlock,"messages": miner.messages.hex(), "timestamp": miner.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
                 
     print("{} closed".format(address[0]))
     conn.shutdown(socket.SHUT_RDWR)
@@ -148,5 +159,7 @@ def server():
         t.start() 
 
 if __name__ == '__main__':
-    miner = SiriCoinMiner(serverAddr)
-    miner.startMining()
+    try:
+        server()
+    except KeyboardInterrupt:
+        print("Keyboard interrupt")
