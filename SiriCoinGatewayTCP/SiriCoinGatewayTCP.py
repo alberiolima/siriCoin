@@ -68,16 +68,19 @@ class SiriCoinMiner(object):
         self.messages = b"null"
         
         self.timestamp = int(time.time())
-        _txs = self.requests.get(f"{self.node}/accounts/accountInfo/{self.acct.address}").json().get("result").get("transactions")
+        url_req = self.node+"/accounts/accountInfo/"+self.acct.address
+        _txs = self.requests.get(url_req).json().get("result").get("transactions")
         self.lastSentTx = _txs[len(_txs)-1]
         self.refresh()
     
     def refresh(self):
-        info = self.requests.get(f"{self.node}/chain/miningInfo").json().get("result")
+        url_req = self.node+"/chain/miningInfo"
+        info = self.requests.get(url_req).json().get("result")
         self.target = info["target"]
         self.difficulty = info["difficulty"]
         self.lastBlock = info["lastBlockHash"]
-        _txs = self.requests.get(f"{self.node}/accounts/accountInfo/{self.acct.address}").json().get("result").get("transactions")
+        url_req = self.node+"/accounts/accountInfo/"+self.acct.address
+        _txs = self.requests.get(url_req).json().get("result").get("transactions")
         self.lastSentTx = _txs[len(_txs)-1]
         self.timestamp = int(time.time())
         self.nonce = 0
@@ -85,7 +88,8 @@ class SiriCoinMiner(object):
     def submitBlock(self, blockData):
         data = json.dumps({"from": self.acct.address, "to": self.acct.address, "tokens": 0, "parent": self.lastSentTx, "blockData": blockData, "epoch": self.lastBlock, "type": 1})
         tx = self.signer.signTransaction(self.priv_key, {"data": data})
-        resp_req = self.requests.get(f"{self.node}/send/rawtransaction/?tx={json.dumps(tx).encode().hex()}")
+        url_req = self.node + "/send/rawtransaction/?tx=" + json.dumps(tx).encode().hex()
+        resp_req = self.requests.get(url_req)
         txid = ""
         if (resp_req.status_code != 500 ):
             txid = resp_req.json().get("result")[0]
@@ -93,8 +97,8 @@ class SiriCoinMiner(object):
             print("<tx>")
             print(json.dumps(tx).encode().hex())
             print("</tx>")
-        print(f"{Fore.WHITE}SYS Mined block {blockData['miningData']['proof']}")
-        print(f"{Fore.WHITE}Submitted in transaction {txid}")
+        print(Fore.WHITE,"SYS Mined block ",blockData['miningData']['proof'])
+        print(Fore.WHITE,"Submitted in transaction ",txid)
         return txid
     
     def beaconRoot(self):
@@ -104,16 +108,16 @@ class SiriCoinMiner(object):
     
     def formatHashrate(self, hashrate):
         if hashrate < 1000:
-            return f"{round(hashrate, 2)}H/s"
+            return str(round(hashrate, 2))+"H/s"
         elif hashrate < 1000000:
-            return f"{round(hashrate/1000, 2)}kH/s"
+            return str(round(hashrate/1000, 2))+"kH/s"
         elif hashrate < 1000000000:
-            return f"{round(hashrate/1000000, 2)}MH/s"
+            return str(round(hashrate/1000000, 2))+"MH/s"
         elif hashrate < 1000000000000:
-            return f"{round(hashrate/1000000000, 2)}GH/s"    
+            return str(round(hashrate/1000000000, 2))+"GH/s"    
 
 def handle_client(conn, address):
-    print(f"{Fore.GREEN}Connected to "+"{}".format(address[0]))
+    print(Fore.GREEN,"Connected to {}".format(address[0]))
     tempo_decorrido = 30
     connTemp = time.time()
     minerID = minerAddr
@@ -132,26 +136,26 @@ def handle_client(conn, address):
             if (cmd[0] == "$REQJOB"):
                 if ( cmd[1] != minerID ):                    
                     if ( len(cmd[1]) > 10 ):
-                        print(f"Miner id: {cmd[1]}")
+                        print("Miner id: ",cmd[1])
                         minerID = cmd[1]
                         miner = SiriCoinMiner(serverAddr,minerID)
                 miner.refresh()
                 miner.timestamp = miner.timestamp + randrange(-10,10)
-                print(f"{Fore.YELLOW}Send job {miner.timestamp}" +  " to {}".format(address[0]))
+                print(Fore.YELLOW,"Send job",miner.timestamp,"to {}".format(address[0]))
                 pacq = miner.beaconRoot() + "," + miner.target + "," + str(tempoTrabalhar + randrange(-10,10)) + "\n"
                 conn.sendall(bytes(pacq,"utf-8"))
             elif (cmd[0] == "$RESULT"):				
-                print(f"{Fore.YELLOW}Recv result from"+" {} ".format(address[0]) + data )
+                print(Fore.YELLOW,"Recv result from {} ".format(address[0]) + data )
                 try:
                     miner.nonce = int(cmd[1])
                     tempo_decorrido = round(int(cmd[2]) * 0.000001)
                     proof = cmd[3]
                     #print(f"Last {round(tempo_decorrido,2)} seconds hashrate : {miner.formatHashrate((miner.nonce / tempo_decorrido))}")                    
                 except:
-                    print(f"invalid data: {data}")
+                    print("Invalid data:",data)
                 if (len(proof) > 30):
-                    print(f"prof: {proof}")
-                    print(f"miner.nonce: {miner.nonce}")
+                    print("prof:", proof)
+                    print("miner.nonce:", miner.nonce)
                     miner.submitBlock({"miningData" : {"miner": miner.rewardsRecipient,"nonce": miner.nonce,"difficulty": miner.difficulty,"miningTarget": miner.target,"proof": proof}, "parent": miner.lastBlock,"messages": miner.messages.hex(), "timestamp": miner.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
     print("{} closed".format(address[0]))
     try:
