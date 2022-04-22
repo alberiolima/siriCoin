@@ -20,8 +20,8 @@
 #define OLED_ADRESS   0x3c
 
 /* User info */
-const char *SSID = "brisa-448561";
-const char *WIFI_PASS = "9xmkuiw1"; 
+const char *SSID = "your_ssid";
+const char *WIFI_PASS = "your_password"; 
 const char* minerAddr   = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"; //SiriCoin address
 
 /* Server info (no need change) */
