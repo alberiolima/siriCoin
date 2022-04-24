@@ -111,9 +111,10 @@ class SiriCoinMiner(object):
                 print(f"{Fore.YELLOW}target     : {self.target}")
                 print(f"{Fore.YELLOW}difficulty : {self.difficulty}")
             bRoot = self.beaconRoot()
-            result = subprocess.run(['./kcck_linux64', bRoot,self.target, '30'], stdout=subprocess.PIPE)            
+            result = subprocess.run(['./kcck_linux64', bRoot,self.target, '30'], stdout=subprocess.PIPE)
             #print(result.stdout)
-            ress = result.stdout.decode("utf-8").strip().split(',')                        
+            ress = result.stdout.decode("utf-8").strip().split(',')
+            tempo_decorrido = 30
             if (ress[0] and ress[1] and ress[2] ):
                 self.nonce = int(ress[0])
                 tempo_decorrido = round(int(ress[1]) * 0.000001)
