@@ -129,8 +129,7 @@ class SiriCoinMiner(object):
         # self.lastblockhash = ""
         # self.miningTarget
 if __name__ == "__main__":
-    #minerAddr = input("Enter your SiriCoin address : ")
-    minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
-    #miner = SiriCoinMiner("https://siricoin-node-1.dynamic-dns.net:5005/", minerAddr)
-    miner = SiriCoinMiner("http://138.197.181.206:5005/", minerAddr)
+    minerAddr = input("Enter your SiriCoin address : ")    
+    miner = SiriCoinMiner("https://siricoin-node-1.dynamic-dns.net:5005/", minerAddr)
+    #miner = SiriCoinMiner("http://138.197.181.206:5005/", minerAddr)
     miner.startMining()
