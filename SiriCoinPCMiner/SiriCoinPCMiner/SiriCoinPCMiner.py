@@ -1,8 +1,5 @@
 #Based on original SiriCoinPCMiner
-import time, importlib, json
-import sha3
-#import hashlib
-#from Crypto.Hash import keccak
+import time, importlib, json, sha3
 from web3.auto import w3
 from eth_account.account import Account
 from eth_account.messages import encode_defunct
@@ -84,26 +81,11 @@ class SiriCoinMiner(object):
         print(f"Submitted in transaction {txid}")
         return txid
 
-
     def beaconRoot(self):
         messagesHash = w3.keccak(self.messages)
         bRoot = w3.soliditySha3(["bytes32", "uint256", "bytes32","address"], [self.lastBlock, int(self.timestamp), messagesHash, self.rewardsRecipient]) # parent PoW hash (bytes32), beacon's timestamp (uint256), hash of messages (bytes32), beacon miner (address)
         return bRoot
-
-    def proofOfWork2(self, bRoot, nonce):
-#        print(f"Beacon root : {bRoot}")
-        t_proof = w3.keccak(b"".join([bRoot,nonce.to_bytes(32, 'big')])).hex()
-        return t_proof
-        
-    def proofOfWork(self, bRoot, nonce):
-#        print(f"Beacon root : {bRoot}")
-        #ctx_proof = hashlib.sha3_256() #import hashlib
-        #ctx_proof = keccak.new(digest_bits=256) #from Crypto.Hash import keccak
-        ctx_proof = sha3.keccak_256() #import sha3 # 150KHs
-        ctx_proof.update(bRoot)
-        ctx_proof.update(nonce.to_bytes(32, 'big'))
-        return "0x" + ctx_proof.hexdigest()
-
+     
     def formatHashrate(self, hashrate):
         if hashrate < 1000:
             return f"{round(hashrate, 2)}H/s"
@@ -129,10 +111,14 @@ class SiriCoinMiner(object):
                 print(f"{Fore.YELLOW}target     : {self.target}")
                 print(f"{Fore.YELLOW}difficulty : {self.difficulty}")
             bRoot = self.beaconRoot()
+            ctx_proof = sha3.keccak_256()
+            ctx_proof.update(bRoot)
             tinicial = time.time()            
             while (time.time() - tinicial) < 20:
                 self.nonce += 1
-                proof = self.proofOfWork(bRoot, self.nonce)
+                ctx_proof2 = ctx_proof;
+                ctx_proof2.update(self.nonce.to_bytes(32, 'big'))
+                proof =  "0x" + ctx_proof2.hexdigest()
                 if (int(proof, 16) < int_target):
                     self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})                    
                     break
