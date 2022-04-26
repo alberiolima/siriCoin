@@ -111,6 +111,7 @@ class SiriCoinMiner(object):
             self.refresh()
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
+                print("")
                 print(f"lastBlock  : {self_lastBlock}")
                 print(f"target     : {self.target}")
                 print(f"difficulty : {self.difficulty}")
@@ -140,7 +141,6 @@ class SiriCoinMiner(object):
                         if (q_bytes>32):
                             print(f"bRoot: {bRoot}")
                             self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
-                            print("")
                         q_bytes = 0
                         break
                     else:
