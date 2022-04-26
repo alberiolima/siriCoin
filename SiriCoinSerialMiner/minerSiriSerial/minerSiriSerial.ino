@@ -1,3 +1,9 @@
+/*
+ * Minerador Siri-Coin
+ * Desenvolvido por Albério Lima (Brazil)
+ * 04-2022
+*/
+
 #pragma GCC optimize ("-Ofast")
 
 #include "sph_keccak.h"
