@@ -5,6 +5,11 @@ from eth_account.account import Account
 from eth_account.messages import encode_defunct
 from colorama import Fore
 
+#NodeAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
+NodeAddr = "http://138.197.181.206:5005/"
+
+minerAddrDef = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674" #Alberio
+
 class SignatureManager(object):
     def __init__(self):
         self.verified = 0
@@ -32,60 +37,79 @@ class SignatureManager(object):
         return result
 
 class SiriCoinMiner(object):
-    def __init__(self, NodeAddr, RewardsRecipient):
-        # self.chain = BeaconChain()
+    def __init__(self, RewardsRecipient):
         self.requests = importlib.import_module("requests")
-        
-        self.node = NodeAddr
         self.signer = SignatureManager()
+
         self.difficulty = 1
         self.target = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         self.lastBlock = ""
         self.rewardsRecipient = w3.toChecksumAddress(RewardsRecipient)
         self.priv_key = w3.solidityKeccak(["string", "address"], ["SiriCoin Will go to MOON - Just a disposable key", self.rewardsRecipient])
 
+        self.timestamp = 0
         self.nonce = 0
         self.acct = w3.eth.account.from_key(self.priv_key)
         self.messages = b"null"
-        
-        self.timestamp = int(time.time())
-        _txs = self.requests.get(f"{self.node}/accounts/accountInfo/{self.acct.address}").json().get("result").get("transactions")
-        self.lastSentTx = _txs[len(_txs)-1]
-        self.refresh()
 
-    def refresh(self):
-        info = self.requests.get(f"{self.node}/chain/miningInfo").json().get("result")
-        self.target = info["target"]
-        self.difficulty = info["difficulty"]
-        self.lastBlock = info["lastBlockHash"]
-        _txs = self.requests.get(f"{self.node}/accounts/accountInfo/{self.acct.address}").json().get("result").get("transactions")
-        self.lastSentTx = _txs[len(_txs)-1]
-        self.timestamp = time.time()
-        self.nonce = 0
+        self.lastSentTx = ""
+        self.balance = 0
+
+        self.send_url = NodeAddr + "send/rawtransaction/?tx="
+        self.block_url = NodeAddr + "chain/miningInfo"
+        self.accountInfo_url = NodeAddr + "accounts/accountInfo/" + self.acct.address
+        self.balance_url = NodeAddr + "accounts/accountBalance/" + RewardsRecipient
+        self.refreshBlock()
+        self.refreshAccountInfo()
+
+    def printBalance(self):
+        balance = 0
+        try:
+            info = self.requests.get(self.balance_url).json().get("result")
+            balance = info["balance"]
+        except:
+            print("Error balance")
+        print(f"Balance: {balance}")
+                
+    def refreshBlock(self):
+        try:
+            info = self.requests.get(self.block_url).json().get("result")
+            self.target = info["target"]
+            self.difficulty = info["difficulty"]
+            self.lastBlock = info["lastBlockHash"]
+        except:
+            print("refreshBlock: error")
+        self.timestamp = int(time.time())
+
+    def refreshAccountInfo(self):
+        try:
+            temp_txs = self.requests.get(self.accountInfo_url).json().get("result")
+            _txs = temp_txs.get("transactions")
+            self.lastSentTx = _txs[len(_txs)-1]
+            self.balance = temp_txs.get("balance")
+        except:
+            print("refreshAccountInfo: error")
 
     def submitBlock(self, blockData):
+        txid = "None"
+        self.refreshAccountInfo()
         data = json.dumps({"from": self.acct.address, "to": self.acct.address, "tokens": 0, "parent": self.lastSentTx, "blockData": blockData, "epoch": self.lastBlock, "type": 1})
         tx = {"data": data}
         tx = self.signer.signTransaction(self.priv_key, tx)
-        self.refresh()
-#        print(tx)
-        tmp_get = self.requests.get(f"{self.node}/send/rawtransaction/?tx={json.dumps(tx).encode().hex()}")
-        txid = ""
+        try:
+            f = open(blockData.get("miningData")["proof"], "w")
+            f.write(f"{self.send_url}{json.dumps(tx).encode().hex()}")
+            f.close();
+        except:
+            print("file write error")
+        tmp_get = self.requests.get(f"{self.send_url}{json.dumps(tx).encode().hex()}")
         if (tmp_get.status_code != 500 ):
             txid = tmp_get.json().get("result")[0]
-        else:
-            print("<tx>")
-            print(json.dumps(tx).encode().hex())
-            print("</tx>")
-        print(f"SYS {Fore.GREEN}Mined block {blockData['miningData']['proof']}")
+        print(f"{Fore.GREEN}TimeStamp: {self.timestamp}, Nonce: {self.nonce}")
+        print(f"Mined block {blockData['miningData']['proof']}")
         print(f"Submitted in transaction {txid}")
         return txid
 
-    def beaconRoot(self):
-        messagesHash = w3.keccak(self.messages)
-        bRoot = w3.soliditySha3(["bytes32", "uint256", "bytes32","address"], [self.lastBlock, int(self.timestamp), messagesHash, self.rewardsRecipient]) # parent PoW hash (bytes32), beacon's timestamp (uint256), hash of messages (bytes32), beacon miner (address)
-        return bRoot
-     
     def formatHashrate(self, hashrate):
         if hashrate < 1000:
             return f"{round(hashrate, 2)}H/s"
@@ -95,42 +119,51 @@ class SiriCoinMiner(object):
             return f"{round(hashrate/1000000, 2)}MH/s"
         elif hashrate < 1000000000000:
             return f"{round(hashrate/1000000000, 2)}GH/s"
-       
+
     def startMining(self):
-        self.refresh()
-        print(f"SYS {Fore.GREEN}Started mining for {self.rewardsRecipient}")
+        print(f"{Fore.GREEN}Started mining for {self.rewardsRecipient}")
+        self.printBalance()
         proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         self_lastBlock = ""
-        int_target = int(self.target, 16)
+        int_target = 0
         while True:
-            self.refresh()
+            self.refreshBlock()
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
+                int_target = int(self.target, 16)
                 print("")
-                print(f"{Fore.YELLOW}lastBlock  : {self_lastBlock}")
-                print(f"{Fore.YELLOW}target     : {self.target}")
-                print(f"{Fore.YELLOW}difficulty : {self.difficulty}")
-            bRoot = self.beaconRoot()
+                print(f"{Fore.YELLOW}lastBlock   : {self_lastBlock}")
+                print(f"{Fore.YELLOW}target      : {self.target}")
+                print(f"{Fore.YELLOW}difficulty  : {self.difficulty}")
+            messagesHash = w3.keccak(self.messages)
+            bRoot = w3.soliditySha3(["bytes32", "uint256", "bytes32","address"], [self.lastBlock, self.timestamp, messagesHash, self.rewardsRecipient])
+            self.nonce = 0
+            tmp0 = 0
+            start_nonce = self.nonce
             ctx_proof = sha3.keccak_256()
             ctx_proof.update(bRoot)
-            tinicial = time.time()            
-            while (time.time() - tinicial) < 20:
-                self.nonce += 1
-                ctx_proof2 = ctx_proof;
-                ctx_proof2.update(self.nonce.to_bytes(32, 'big'))
-                proof =  "0x" + ctx_proof2.hexdigest()
-                if (int(proof, 16) < int_target):
-                    self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})                    
-                    break
-            print(f"SYS {Fore.YELLOW}Last {round(time.time() - tinicial,2)} seconds hashrate : {self.formatHashrate((self.nonce / (time.time() - tinicial)))}")
+            ctx_proof.update(tmp0.to_bytes(24, "big"))
+            t0 = time.time()
+            t1 = t0 + 20
+            while (time.time() < t1):
+                tp = time.time() + 5
+                while (time.time() < tp):
+                    self.nonce += 1
+                    ctx_proof2 = ctx_proof.copy()
+                    ctx_proof2.update(self.nonce.to_bytes(8, "big"))
+                    bProof = ctx_proof2.digest()
+                    if (int.from_bytes(bProof, "big") < int_target):
+                        proof = "0x" + bProof.hex()
+                        self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
+                        t1 = 0
+                        break
+                print(f"{Fore.YELLOW}Hashrate : {self.formatHashrate(((self.nonce - start_nonce) / (time.time() - t0)))} Last {round(time.time() - t0,2)} seconds ")
 
-# class SiriCoinMiner(object):
-    # def __init__(self, minerAddress):
-        # self.miner = minerAddress
-        # self.lastblockhash = ""
-        # self.miningTarget
 if __name__ == "__main__":
+    if 'minerAddrDef' in globals():
+        print(f"Default SiriCoin address: {minerAddrDef}")
     minerAddr = input("Enter your SiriCoin address : ")
-    miner = SiriCoinMiner("https://siricoin-node-1.dynamic-dns.net:5005/", minerAddr)
-    #miner = SiriCoinMiner("http://138.197.181.206:5005/", minerAddr)
+    if ( minerAddr == "" ):
+	    minerAddr = minerAddrDef
+    miner = SiriCoinMiner(minerAddr)
     miner.startMining()
