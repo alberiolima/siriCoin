@@ -8,8 +8,6 @@ from colorama import Fore
 #NodeAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
 NodeAddr = "http://138.197.181.206:5005/"
 
-minerAddrDef = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674" #Alberio
-
 class SignatureManager(object):
     def __init__(self):
         self.verified = 0
@@ -160,10 +158,6 @@ class SiriCoinMiner(object):
                 print(f"{Fore.YELLOW}Hashrate : {self.formatHashrate(((self.nonce - start_nonce) / (time.time() - t0)))} Last {round(time.time() - t0,2)} seconds ")
 
 if __name__ == "__main__":
-    if 'minerAddrDef' in globals():
-        print(f"Default SiriCoin address: {minerAddrDef}")
     minerAddr = input("Enter your SiriCoin address : ")
-    if ( minerAddr == "" ):
-	    minerAddr = minerAddrDef
     miner = SiriCoinMiner(minerAddr)
     miner.startMining()
