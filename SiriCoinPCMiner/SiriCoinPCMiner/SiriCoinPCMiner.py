@@ -4,9 +4,20 @@ from web3.auto import w3
 from eth_account.account import Account
 from eth_account.messages import encode_defunct
 from colorama import Fore
-
+import platform
+           
 #NodeAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
 NodeAddr = "http://138.197.181.206:5005/"
+maxTemperature = 80
+
+def get_cpu_temp():
+    try:
+        tempFile = open("/sys/class/thermal/thermal_zone0/temp")
+        cpu_temp = tempFile.read()
+        tempFile.close()
+    except:
+        cpu_temp = 0
+    return float(cpu_temp) / 1000 
 
 class SignatureManager(object):
     def __init__(self):
@@ -74,7 +85,7 @@ class SiriCoinMiner(object):
             info = self.requests.get(self.block_url).json().get("result")
             self.target = info["target"]
             self.difficulty = info["difficulty"]
-            self.lastBlock = info["lastBlockHash"]
+            self.lastBlock = info["lastBlockHash"]            
         except:
             print("refreshBlock: error")
         self.timestamp = int(time.time())
@@ -113,12 +124,19 @@ class SiriCoinMiner(object):
             return f"{round(hashrate/1000000000, 2)}GH/s"
 
     def startMining(self):
-        print(f"{Fore.GREEN}Started mining for {self.rewardsRecipient}")
-        self.printBalance()
+        self.printBalance()        
         proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         self_lastBlock = ""
         int_target = 0
+        print(f"{Fore.WHITE}Started mining")        
         while True:
+            tempe = get_cpu_temp() 
+            if (tempe > maxTemperature):
+                while (tempe > maxTemperature):
+                    print(f"{Fore.RED}Temperature : {tempe}, paused")
+                    time.sleep(10)
+                    tempe = get_cpu_temp()
+                print(f"{Fore.YELLOW}Temperature : {tempe}, resumed")
             self.refreshBlock()
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
@@ -139,7 +157,7 @@ class SiriCoinMiner(object):
             t1 = t0 + 20
             while (time.time() < t1):
                 tp = time.time() + 5
-                while (time.time() < tp):
+                while (time.time() < tp):                    
                     self.nonce += 1
                     ctx_proof2 = ctx_proof.copy()
                     ctx_proof2.update(self.nonce.to_bytes(8, "big"))
@@ -148,10 +166,13 @@ class SiriCoinMiner(object):
                         proof = "0x" + bProof.hex()
                         self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
                         t1 = 0
-                        break
-                print(f"{Fore.YELLOW}Hashrate : {self.formatHashrate(((self.nonce - start_nonce) / (time.time() - t0)))} Last {round(time.time() - t0,2)} seconds ")
+                        break                    
+                print(f"{Fore.YELLOW}Hashrate : {self.formatHashrate(((self.nonce - start_nonce) / (time.time() - t0)))} Last {round(time.time() - t0,2)} seconds")
 
 if __name__ == "__main__":
+    print(f"{Fore.WHITE}SiriCoinPCMiner")
+    print(f"{Fore.WHITE}Platform: ", platform.system())
+    print(f"{Fore.WHITE}Temperature : {get_cpu_temp()}")
     minerAddr = input("Enter your SiriCoin address : ")
     miner = SiriCoinMiner(minerAddr)
     miner.startMining()
