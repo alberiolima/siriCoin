@@ -27,7 +27,7 @@ serverAddr = "http://138.197.181.206:5005/"
 self_lastBlock = ""
 
 def readConfigMiner():
-    configMiner['DEFAULT'] = {'minerAddr': '', 'serialPorts': '','timeWork': 20 }
+    configMiner['DEFAULT'] = {'miner_addr': '', 'serial_ports': '','time_work': 20 }
     if (os.path.exists(configMinerName) is False):
         writeConfigMiner()
     try:
@@ -114,8 +114,8 @@ class SiriCoinMiner(object):
         tx = self.signer.signTransaction(self.priv_key, tx)
         self.refresh()
         txid = self.requests.get(f"{self.node}/send/rawtransaction/?tx={json.dumps(tx).encode().hex()}").json().get("result")[0]
-        print(f"SYS Mined block {blockData['miningData']['proof']}")
-        print(f"Submitted in transaction {txid}")
+        print(f"{Fore.GREEN}Mined block {blockData['miningData']['proof']}")
+        print(f"{Fore.GREEN}Submitted in transaction {txid}")
         return txid
 
     def beaconRoot(self):
@@ -132,23 +132,22 @@ class SiriCoinMiner(object):
             return f"{round(hashrate/1000000, 2)}MH/s"
         elif hashrate < 1000000000000:
             return f"{round(hashrate/1000000000, 2)}GH/s"
-            
+
     def startMining(self, indexThread, serial_port):        
-        print(f"T{indexThread} connecting to {serial_port}")
+        print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}connecting to {Fore.WHITE}{serial_port}")
         ser  = serial.Serial(f"{serial_port}", baudrate=115200, timeout=2.5)
         time.sleep(1)
         proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        self.refresh()
         global self_lastBlock
+        self_lastBlock = self.lastBlock        
         while True:
             self.refresh()
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
-                print("")
-                print(f"lastBlock  : {self_lastBlock}")
-                print(f"target     : {self.target}")
-                print(f"difficulty : {self.difficulty}")
+                print(f"{Fore.RED}New block")
             bRoot = self.beaconRoot()
-            print(f"T{indexThread} send job")
+            print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}send job")
             ddata = f"{bRoot},{self.target},{tempoTrabalhar}\n"
             ser.flush()
             ser.write(ddata.encode('ascii'))
@@ -168,11 +167,10 @@ class SiriCoinMiner(object):
                             tempo_decorrido = round(int(ress[1].rstrip()) * 0.000001)
                             proof = ress[2].rstrip()
                         except:
-                            print(f"invalid data: {recebido}")
+                            print(f"{Fore.YELLOW}Invalid data: {recebido}")
                         recebido = ""
-                        print(f"T{indexThread} {self.timestamp} Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
+                        print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
                         if (q_bytes>32):
-                            print(f"bRoot: {bRoot}")
                             self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
                         q_bytes = 0
                         break
@@ -183,38 +181,41 @@ if __name__ == "__main__":
 	#Read config
     readConfigMiner()
     
+    print(f"{Fore.YELLOW}Server: {Fore.WHITE}{serverAddr}")
+    
     #Get SiriCoin address
     if ( minerAddr == "" ):
-        minerAddr = input("Enter SiriCoin address: ")
+        minerAddr = input(f"{Fore.YELLOW}Enter SiriCoin address: {Fore.WHITE}")
     else:
-        print("SiriCoin address:", minerAddr )
-        t_minerAddr = input("Enter new SiriCoin address or ENTER to continue: ")
+        print(f"{Fore.YELLOW}SiriCoin address:{Fore.WHITE}", minerAddr )
+        t_minerAddr = input(f"{Fore.YELLOW}Enter new SiriCoin address or ENTER to continue: {Fore.WHITE}")
         if (t_minerAddr != ""):
             minerAddr = t_minerAddr
     
     #Get list of serial ports
     if ( serialPorts == "" ):
-        serialPorts = input("Enter list serial ports: ")
+        serialPorts = input(f"{Fore.YELLOW}Enter list serial ports: {Fore.WHITE}")
     else:
-        print("list serial ports:", serialPorts )
-        t_serialPorts = input("Enter new list serial ports or ENTER to continue: ")
+        print(f"{Fore.YELLOW}List serial ports:{Fore.WHITE}", serialPorts )
+        t_serialPorts = input(f"{Fore.YELLOW}Enter new list serial ports or ENTER to continue: {Fore.WHITE}")
         if (t_serialPorts != ""):
             serialPorts = t_serialPorts
     
     #Write config
     writeConfigMiner()
     
-    print(f"SYS Started mining for {minerAddr}")
-    print(f"Serial ports", serialPorts )
     listPorts = serialPorts.split(',')
     real_ports = list()
     for port in listPorts:
         if os.path.exists(port):
             real_ports.append(port)
-            print(port, "[ok]")
+            print(f"{Fore.YELLOW}{port}", f"{Fore.WHITE}[ok]")
         else:
-            print(port, "[invalid]")    
+            print(f"{Fore.YELLOW}{port}", f"{Fore.WHITE}[invalid]")    
    
+    print(f"{Fore.YELLOW}...")
+    print(f"{Fore.YELLOW}Started mining")
+    
     #Threads
     index = 0
     for port in real_ports:
