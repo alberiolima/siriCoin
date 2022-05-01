@@ -9,7 +9,7 @@ from colorama import Fore
 serialPort = "/dev/ttyUSB0"
 
 #miner id
-minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
+minerAddr = input("Enter your SiriCoin address : ")
 
 #time job
 tempoTrabalhar = 20
