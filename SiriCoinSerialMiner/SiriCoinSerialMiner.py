@@ -5,12 +5,17 @@ from eth_account.account import Account
 from eth_account.messages import encode_defunct
 from colorama import Fore
 from threading import Thread
+import os.path 
+import configparser
+
+configMinerName = 'config.ini'
+configMiner = configparser.ConfigParser()
 
 #change usb-serial port (baud=115200)
-serialPorts = "/dev/ttyACM0,/dev/ttyUSB0"
+serialPorts = ""
 
 #miner id
-minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
+minerAddr = ""
 
 #time job
 tempoTrabalhar = 20
@@ -21,6 +26,30 @@ serverAddr = "http://138.197.181.206:5005/"
 
 self_lastBlock = ""
 
+def readConfigMiner():
+    configMiner['DEFAULT'] = {'minerAddr': '', 'serialPorts': '','timeWork': 20 }
+    if (os.path.exists(configMinerName) is False):
+        writeConfigMiner()
+    try:
+        global minerAddr,serialPorts,tempoTrabalhar
+        configMiner.read(configMinerName)
+        def_config = configMiner["DEFAULT"]
+        minerAddr = def_config["miner_addr"]
+        serialPorts = def_config["serial_ports"]
+        tempoTrabalhar = int(def_config["time_work"])
+    except:
+        print("error read config file") 
+
+def writeConfigMiner():
+    def_config = configMiner["DEFAULT"]
+    def_config["miner_addr"] = minerAddr
+    def_config["serial_ports"] = serialPorts
+    try:
+        with open(configMinerName, 'w') as configfile:
+            configMiner.write(configfile)
+    except:
+        print("error write config file") 
+    
 class SignatureManager(object):
     def __init__(self):
         self.verified = 0
@@ -151,13 +180,44 @@ class SiriCoinMiner(object):
                         recebido = recebido + byte_lido.decode("utf-8")
 
 if __name__ == "__main__":
-    print(f"SYS Started mining for {minerAddr}")
+	#Read config
+    readConfigMiner()
     
+    #Get SiriCoin address
+    if ( minerAddr == "" ):
+        minerAddr = input("Enter SiriCoin address: ")
+    else:
+        print("SiriCoin address:", minerAddr )
+        t_minerAddr = input("Enter new SiriCoin address or ENTER to continue: ")
+        if (t_minerAddr != ""):
+            minerAddr = t_minerAddr
+    
+    #Get list of serial ports
+    if ( serialPorts == "" ):
+        serialPorts = input("Enter list serial ports: ")
+    else:
+        print("list serial ports:", serialPorts )
+        t_serialPorts = input("Enter new list serial ports or ENTER to continue: ")
+        if (t_serialPorts != ""):
+            serialPorts = t_serialPorts
+    
+    #Write config
+    writeConfigMiner()
+    
+    print(f"SYS Started mining for {minerAddr}")
+    print(f"Serial ports", serialPorts )
     listPorts = serialPorts.split(',')
+    real_ports = list()
+    for port in listPorts:
+        if os.path.exists(port):
+            real_ports.append(port)
+            print(port, "[ok]")
+        else:
+            print(port, "[invalid]")    
    
     #Threads
     index = 0
-    for port in listPorts:
+    for port in real_ports:
         miner = SiriCoinMiner(serverAddr, minerAddr)
         Thread(target=miner.startMining, args=(index, port)).start()
         index += 1
