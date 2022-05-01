@@ -2,6 +2,7 @@
  * Minerador Siri-Coin
  * Desenvolvido por Albério Lima (Brazil)
  * 04-2022
+ * Tested on: ESP8266, STM32(bluepill and blackpill), MEGA2560
 */
 
 #pragma GCC optimize ("-Ofast")
@@ -47,6 +48,7 @@ void loop() {
     
     nonce = 0;    
     tempo = 0;
+    sph_keccak_context ctx;
     unsigned long tfinal = millis() + ( tempoTrabalho * 1000UL );
     unsigned long timeStart = micros();
     max_micros_elapsed(timeStart, 0);
@@ -58,10 +60,9 @@ void loop() {
       uchar_bRoot[size_bRoot+2]=(unsigned char)(nonce>>8);
       uchar_bRoot[size_bRoot+3]=(unsigned char)(nonce);      
       
-      sph_keccak_context ctx;        
       sph_keccak256_init(&ctx);  
       sph_keccak256(&ctx, uchar_bRoot, size_bRoot+4);
-      sph_keccak256_close(&ctx, resultado);
+      sph_keccak256_close(&ctx, resultado);      
       
       if ( hashToUint64(resultado) < uint64_target ) {        
         tempo = micros() - timeStart;
@@ -71,8 +72,9 @@ void loop() {
         SERIAL.print(",");
         printHex(resultado,32);        
         SERIAL.print("\n");
-        tfinal = millis();
-      }
+        //tfinal = millis();
+        break;
+      }     
       if (max_micros_elapsed(micros(), 1000000)) {
         yield();
       }

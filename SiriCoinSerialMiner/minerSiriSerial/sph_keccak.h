@@ -101,19 +101,4 @@ void sph_keccak256(sph_keccak_context *cc, const void *data, size_t len);
  */
 void sph_keccak256_close(sph_keccak_context *cc, void *dst);
 
-/**
- * Add a few additional bits (0 to 7) to the current computation, then
- * terminate it and output the result in the provided buffer, which must
- * be wide enough to accomodate the result (32 bytes). If bit number i
- * in <code>ub</code> has value 2^i, then the extra bits are those
- * numbered 7 downto 8-n (this is the big-endian convention at the byte
- * level). The context is automatically reinitialized.
- *
- * @param cc    the Keccak-256 context
- * @param ub    the extra bits
- * @param n     the number of extra bits (0 to 7)
- * @param dst   the destination buffer
- */
-void sph_keccak256_addbits_and_close( sph_keccak_context *cc, unsigned ub, unsigned n, void *dst);
-
 #endif

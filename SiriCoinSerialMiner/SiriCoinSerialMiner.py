@@ -4,9 +4,10 @@ from web3.auto import w3
 from eth_account.account import Account
 from eth_account.messages import encode_defunct
 from colorama import Fore
+from threading import Thread
 
 #change usb-serial port (baud=115200)
-serialPort = "/dev/ttyUSB0"
+serialPorts = "/dev/ttyACM0,/dev/ttyUSB0"
 
 #miner id
 minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
@@ -15,8 +16,10 @@ minerAddr = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
 tempoTrabalhar = 20
 
 #server
-#serverAddr = "http://138.197.181.206:5005/" 
-serverAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
+serverAddr = "http://138.197.181.206:5005/" 
+#serverAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
+
+self_lastBlock = ""
 
 class SignatureManager(object):
     def __init__(self):
@@ -101,12 +104,12 @@ class SiriCoinMiner(object):
         elif hashrate < 1000000000000:
             return f"{round(hashrate/1000000000, 2)}GH/s"
             
-    def startMining(self):
-        print(f"SYS Started mining for {minerAddr}")
-        self.refresh()
-        ser  = serial.Serial(f"{serialPort}", baudrate=115200, timeout=2.5)
+    def startMining(self, indexThread, serial_port):        
+        print(f"T{indexThread} connecting to {serial_port}")
+        ser  = serial.Serial(f"{serial_port}", baudrate=115200, timeout=2.5)
+        time.sleep(1)
         proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-        self_lastBlock = ""
+        global self_lastBlock
         while True:
             self.refresh()
             if (self_lastBlock != self.lastBlock):
@@ -116,6 +119,7 @@ class SiriCoinMiner(object):
                 print(f"target     : {self.target}")
                 print(f"difficulty : {self.difficulty}")
             bRoot = self.beaconRoot()
+            print(f"T{indexThread} send job")
             ddata = f"{bRoot},{self.target},{tempoTrabalhar}\n"
             ser.flush()
             ser.write(ddata.encode('ascii'))
@@ -137,7 +141,7 @@ class SiriCoinMiner(object):
                         except:
                             print(f"invalid data: {recebido}")
                         recebido = ""
-                        print(f"SYS {self.timestamp} Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
+                        print(f"T{indexThread} {self.timestamp} Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
                         if (q_bytes>32):
                             print(f"bRoot: {bRoot}")
                             self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
@@ -147,5 +151,13 @@ class SiriCoinMiner(object):
                         recebido = recebido + byte_lido.decode("utf-8")
 
 if __name__ == "__main__":
-    miner = SiriCoinMiner(serverAddr, minerAddr)
-    miner.startMining()
+    print(f"SYS Started mining for {minerAddr}")
+    
+    listPorts = serialPorts.split(',')
+   
+    #Threads
+    index = 0
+    for port in listPorts:
+        miner = SiriCoinMiner(serverAddr, minerAddr)
+        Thread(target=miner.startMining, args=(index, port)).start()
+        index += 1

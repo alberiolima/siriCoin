@@ -89,7 +89,7 @@
  */
 #if !defined SPH_KECCAK_64 && SPH_64 \
   && !(defined __i386__ || SPH_I386_GCC || SPH_I386_MSVC)
-#define SPH_KECCAK_64   1
+#define SPH_KECCAK_64   1 //desabilitado por alberio para ficar mais rapido no esp8266/32, porém precisa no mega2560 (resolver depois)
 #endif
 
 /*
@@ -1692,10 +1692,10 @@ static void keccak_core(sph_keccak_context *kc, const void *data, size_t len, si
 
 #endif
 
-DEFCLOSE(28, 144)
+//DEFCLOSE(28, 144)
 DEFCLOSE(32, 136)
-DEFCLOSE(48, 104)
-DEFCLOSE(64, 72)
+//DEFCLOSE(48, 104)
+//DEFCLOSE(64, 72)
 /* see sph_keccak.h */
 void sph_keccak256_init(sph_keccak_context *cc) {
   keccak_init(cc, 256);
@@ -1708,10 +1708,5 @@ void sph_keccak256(sph_keccak_context *cc, const void *data, size_t len) {
 
 /* see sph_keccak.h */
 void sph_keccak256_close(sph_keccak_context *cc, void *dst) {
-  sph_keccak256_addbits_and_close(cc, 0, 0, dst);
-}
-
-/* see sph_keccak.h */
-void sph_keccak256_addbits_and_close(sph_keccak_context *cc, unsigned ub, unsigned n, void *dst) {
-  keccak_close32(cc, ub, n, dst);
+  keccak_close32(cc, 0, 0, dst);
 }
