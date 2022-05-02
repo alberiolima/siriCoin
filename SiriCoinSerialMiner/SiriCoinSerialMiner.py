@@ -27,11 +27,11 @@ serverAddr = "http://138.197.181.206:5005/"
 self_lastBlock = ""
 
 def readConfigMiner():
+    global minerAddr,serialPorts,tempoTrabalhar
     configMiner['DEFAULT'] = {'miner_addr': '', 'serial_ports': '','time_work': 20 }
     if (os.path.exists(configMinerName) is False):
-        writeConfigMiner()
-    try:
-        global minerAddr,serialPorts,tempoTrabalhar
+        writeConfigMiner()    
+    try:        
         configMiner.read(configMinerName)
         def_config = configMiner["DEFAULT"]
         minerAddr = def_config["miner_addr"]
@@ -41,9 +41,12 @@ def readConfigMiner():
         print("error read config file") 
 
 def writeConfigMiner():
+    global minerAddr,serialPorts
+    global tempoTrabalhar
     def_config = configMiner["DEFAULT"]
     def_config["miner_addr"] = minerAddr
     def_config["serial_ports"] = serialPorts
+    def_config["time_work"] = str(tempoTrabalhar)
     try:
         with open(configMinerName, 'w') as configfile:
             configMiner.write(configfile)
@@ -134,50 +137,71 @@ class SiriCoinMiner(object):
             return f"{round(hashrate/1000000000, 2)}GH/s"
 
     def startMining(self, indexThread, serial_port):        
-        print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}connecting to {Fore.WHITE}{serial_port}")
-        ser  = serial.Serial(f"{serial_port}", baudrate=115200, timeout=2.5)
-        time.sleep(1)
-        proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-        self.refresh()
         global self_lastBlock
-        self_lastBlock = self.lastBlock        
         while True:
+            while True:
+                print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}connecting to {Fore.WHITE}{serial_port}")
+                try:
+                    ser = serial.Serial(f"{serial_port}", baudrate=115200, timeout=2.5)
+                    break
+                except:
+                    print(f"Error connecting {serial_port}")
+                time.sleep(2)
             self.refresh()
-            if (self_lastBlock != self.lastBlock):
-                self_lastBlock = self.lastBlock
-                print(f"{Fore.RED}New block")
-            bRoot = self.beaconRoot()
-            print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}send job")
-            ddata = f"{bRoot},{self.target},{tempoTrabalhar}\n"
-            ser.flush()
-            ser.write(ddata.encode('ascii'))
-            recebido = ""
-            tempo_decorrido = tempoTrabalhar
-            q_bytes = 0
-            self.nonce = 0
-            tinicial = time.time()
-            while (time.time() - tinicial) < (tempoTrabalhar * 2):
-                if (ser.in_waiting>0):
-                    byte_lido = ser.read()
-                    q_bytes = q_bytes + 1
-                    if (byte_lido == b'\n'):
-                        ress = recebido.split(',')
-                        try:
-                            self.nonce = int(ress[0].rstrip())
-                            tempo_decorrido = round(int(ress[1].rstrip()) * 0.000001)
-                            proof = ress[2].rstrip()
-                        except:
-                            print(f"{Fore.YELLOW}Invalid data: {recebido}")
-                        recebido = ""
-                        print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
-                        if (q_bytes>32):
-                            self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
-                        q_bytes = 0
+            proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"        
+            self_lastBlock = self.lastBlock
+            while True:
+                self.refresh()
+                if (self_lastBlock != self.lastBlock):
+                    self_lastBlock = self.lastBlock
+                    print(f"{Fore.RED}New block")
+                bRoot = self.beaconRoot()
+                print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}send job")
+                ddata = f"{bRoot},{self.target},{tempoTrabalhar}\n"
+                port_is_ok = False
+                try:
+                    ser_in_waiting = ser.in_waiting
+                    port_is_ok = True
+                except:
+                    print(f"Error reading {serial_port}")
+                    ser.close()
+                    break
+                ser.flush()
+                ser.write(ddata.encode('ascii'))
+                recebido = ""
+                tempo_decorrido = tempoTrabalhar
+                q_bytes = 0
+                self.nonce = 0
+                tinicial = time.time()
+                while (time.time() - tinicial) < (tempoTrabalhar * 2):
+                    ser_in_waiting = 0
+                    try:
+                        ser_in_waiting = ser.in_waiting
+                    except:
+                        ser.close()
                         break
-                    else:
-                        recebido = recebido + byte_lido.decode("utf-8")
+                    if (ser_in_waiting>0):
+                        byte_lido = ser.read()
+                        q_bytes = q_bytes + 1
+                        if (byte_lido == b'\n'):
+                            ress = recebido.split(',')
+                            try:
+                                self.nonce = int(ress[0].rstrip())
+                                tempo_decorrido = round(int(ress[1].rstrip()) * 0.000001)
+                                proof = ress[2].rstrip()
+                            except:
+                                print(f"{Fore.YELLOW}Invalid data: {recebido}")
+                            recebido = ""
+                            print(f"{Fore.WHITE}T{indexThread} {Fore.YELLOW}Last {round(tempo_decorrido,2)} seconds hashrate : {self.formatHashrate((self.nonce / tempo_decorrido))}")
+                            if (q_bytes>32):
+                                self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
+                            q_bytes = 0
+                            break
+                        else:
+                            recebido = recebido + byte_lido.decode("utf-8")
 
 if __name__ == "__main__":
+	
 	#Read config
     readConfigMiner()
     
