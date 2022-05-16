@@ -5,10 +5,48 @@ from eth_account.account import Account
 from eth_account.messages import encode_defunct
 from colorama import Fore
 import platform
-           
-#NodeAddr = "https://siricoin-node-1.dynamic-dns.net:5005/"
-NodeAddr = "http://138.197.181.206:5005/"
-maxTemperature = 80
+from random import randrange
+import os.path 
+import configparser
+
+configMinerName = 'config.ini'
+configMiner = configparser.ConfigParser()
+
+#miner id
+minerAddr = ""           
+
+#time job
+tempoTrabalhar = 20
+
+#temperature control
+maxTemperature = 90
+
+NodeAddr = "https://node-1.siricoin.tech:5006/"
+
+def readConfigMiner():
+    global minerAddr,serialPorts,tempoTrabalhar
+    configMiner['DEFAULT'] = {'miner_addr': '', 'time_work': 20 }
+    if (os.path.exists(configMinerName) is False):
+        writeConfigMiner()    
+    try:        
+        configMiner.read(configMinerName)
+        def_config = configMiner["DEFAULT"]
+        minerAddr = def_config["miner_addr"]
+        tempoTrabalhar = int(def_config["time_work"])
+    except:
+        print("error read config file") 
+
+def writeConfigMiner():
+    global minerAddr,serialPorts
+    global tempoTrabalhar
+    def_config = configMiner["DEFAULT"]
+    def_config["miner_addr"] = minerAddr
+    def_config["time_work"] = str(tempoTrabalhar)
+    try:
+        with open(configMinerName, 'w') as configfile:
+            configMiner.write(configfile)
+    except:
+        print("error write config file") 
 
 def get_cpu_temp():
     try:
@@ -65,21 +103,12 @@ class SiriCoinMiner(object):
         self.balance = 0
 
         self.send_url = NodeAddr + "send/rawtransaction/?tx="
-        self.block_url = NodeAddr + "chain/miningInfo"
-        self.accountInfo_url = NodeAddr + "accounts/accountInfo/" + self.acct.address
+        self.block_url = NodeAddr + "chain/miningInfo"        
+        self.accountInfo_url = NodeAddr + "accounts/accountInfo/" + RewardsRecipient
         self.balance_url = NodeAddr + "accounts/accountBalance/" + RewardsRecipient
         self.refreshBlock()
         self.refreshAccountInfo()
-
-    def printBalance(self):
-        balance = 0
-        try:
-            info = self.requests.get(self.balance_url).json().get("result")
-            balance = info["balance"]
-        except:
-            print("Error balance")
-        print(f"Balance: {balance}")
-                
+               
     def refreshBlock(self):
         try:
             info = self.requests.get(self.block_url).json().get("result")
@@ -124,12 +153,13 @@ class SiriCoinMiner(object):
             return f"{round(hashrate/1000000000, 2)}GH/s"
 
     def startMining(self):
-        self.printBalance()        
+        print(f"{Fore.GREEN}Balance: ", self.balance)
         proof = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
         self_lastBlock = ""
         int_target = 0
         print(f"{Fore.WHITE}Started mining")        
         while True:
+            #Temperature check
             tempe = get_cpu_temp() 
             if (tempe > maxTemperature):
                 while (tempe > maxTemperature):
@@ -137,7 +167,12 @@ class SiriCoinMiner(object):
                     time.sleep(10)
                     tempe = get_cpu_temp()
                 print(f"{Fore.YELLOW}Temperature : {tempe}, resumed")
+            
+            #mining
             self.refreshBlock()
+            if (self.lastBlock == "" ):
+                time.sleep(10)
+                continue
             if (self_lastBlock != self.lastBlock):
                 self_lastBlock = self.lastBlock
                 int_target = int(self.target, 16)
@@ -147,32 +182,86 @@ class SiriCoinMiner(object):
                 print(f"{Fore.YELLOW}difficulty  : {self.difficulty}")
             messagesHash = w3.keccak(self.messages)
             bRoot = w3.soliditySha3(["bytes32", "uint256", "bytes32","address"], [self.lastBlock, self.timestamp, messagesHash, self.rewardsRecipient])
-            self.nonce = 0
+            try:
+                self.nonce = randrange(int(self.difficulty/2))
+            except:
+                pass
+            second_nonce = 0
+            send_block_mined = False
             tmp0 = 0
-            start_nonce = self.nonce
             ctx_proof = sha3.keccak_256()
             ctx_proof.update(bRoot)
             ctx_proof.update(tmp0.to_bytes(24, "big"))
             t0 = time.time()
-            t1 = t0 + 20
+            t1 = t0 + tempoTrabalhar
             while (time.time() < t1):
                 tp = time.time() + 5
                 while (time.time() < tp):                    
+                    
+                    #try 1
                     self.nonce += 1
                     ctx_proof2 = ctx_proof.copy()
                     ctx_proof2.update(self.nonce.to_bytes(8, "big"))
                     bProof = ctx_proof2.digest()
                     if (int.from_bytes(bProof, "big") < int_target):
-                        proof = "0x" + bProof.hex()
-                        self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
-                        t1 = 0
+                        send_block_mined = True
                         break                    
-                print(f"{Fore.YELLOW}Hashrate : {self.formatHashrate(((self.nonce - start_nonce) / (time.time() - t0)))} Last {round(time.time() - t0,2)} seconds")
+                    
+                    #try 2
+                    second_nonce += 1
+                    ctx_proof2 = ctx_proof.copy()
+                    ctx_proof2.update(second_nonce.to_bytes(8, "big"))
+                    bProof = ctx_proof2.digest()
+                    if (int.from_bytes(bProof, "big") < int_target):
+                        self.nonce = second_nonce
+                        send_block_mined = True
+                        break
+                    
+                    #try 3
+                    self.nonce += 1
+                    ctx_proof2 = ctx_proof.copy()
+                    ctx_proof2.update(self.nonce.to_bytes(8, "big"))
+                    bProof = ctx_proof2.digest()
+                    if (int.from_bytes(bProof, "big") < int_target):
+                        send_block_mined = True
+                        break                    
+                    
+                    #try 4
+                    second_nonce += 1
+                    ctx_proof2 = ctx_proof.copy()
+                    ctx_proof2.update(second_nonce.to_bytes(8, "big"))
+                    bProof = ctx_proof2.digest()
+                    if (int.from_bytes(bProof, "big") < int_target):
+                        self.nonce = second_nonce
+                        send_block_mined = True
+                        break
+
+                print(f"{Fore.YELLOW}Hashrate : {self.formatHashrate(((second_nonce*2) / (time.time() - t0)))} Last {round(time.time() - t0,2)} seconds")
+                if send_block_mined is True:
+                    proof = "0x" + bProof.hex()
+                    self.submitBlock({"miningData" : {"miner": self.rewardsRecipient,"nonce": self.nonce,"difficulty": self.difficulty,"miningTarget": self.target,"proof": proof}, "parent": self.lastBlock,"messages": self.messages.hex(), "timestamp": self.timestamp, "son": "0000000000000000000000000000000000000000000000000000000000000000"})
+                    t1 = 0
 
 if __name__ == "__main__":
+    #Read config
+    readConfigMiner()
+
     print(f"{Fore.WHITE}SiriCoinPCMiner")
-    print(f"{Fore.WHITE}Platform: ", platform.system())
-    print(f"{Fore.WHITE}Temperature : {get_cpu_temp()}")
-    minerAddr = input("Enter your SiriCoin address : ")
+    print(f"{Fore.WHITE}Platform    :", platform.system())
+    print(f"{Fore.WHITE}Temperature :", get_cpu_temp())
+    print(f"{Fore.WHITE}Server      :", NodeAddr)
+    
+    #Get SiriCoin address
+    if ( minerAddr == "" ):
+        minerAddr = input(f"{Fore.YELLOW}Enter SiriCoin address: {Fore.WHITE}")
+    else:
+        print(f"{Fore.YELLOW}SiriCoin address:{Fore.WHITE}", minerAddr )
+        t_minerAddr = input(f"{Fore.YELLOW}Enter new SiriCoin address or ENTER to continue: {Fore.WHITE}")
+        if (t_minerAddr != ""):
+            minerAddr = t_minerAddr
+    
+    #Write config
+    writeConfigMiner()
+    
     miner = SiriCoinMiner(minerAddr)
     miner.startMining()
