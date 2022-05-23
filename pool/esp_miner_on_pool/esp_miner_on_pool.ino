@@ -24,7 +24,7 @@
   #define LED_ON LOW
 #endif
 
-#define ddebug2 
+//#define ddebug2 
 
 /* SiriCoin Address */
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
