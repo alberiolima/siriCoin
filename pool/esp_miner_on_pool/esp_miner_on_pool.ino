@@ -1,9 +1,9 @@
 /*
   ESP8266/ESP32 mining on pool for SiriCoin
-  Developed by Albério Lima (https://github.com/alberiolima/)
+  Developed by Albério Lima 
+  https://github.com/alberiolima
   05-2022 Brazil
 */
-
 #include <ArduinoJson.h>
 #if defined(ARDUINO_ARCH_ESP32)
   #include <WiFi.h>
@@ -14,11 +14,17 @@
 #endif  
 #include "sph_keccak.h"
 
+#ifndef LED_BUILTIN
+  #define LED_BUILTIN 2
+#endif
+
 #if defined(ARDUINO_ARCH_ESP32)
   #define LED_ON HIGH
 #else
   #define LED_ON LOW
 #endif
+
+#define ddebug2 
 
 /* SiriCoin Address */
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
@@ -169,8 +175,10 @@ boolean poolGetJob(){
   String str_json_post = "{\"id\":" + String(miner_id) + ", \"method\": \"mining.subscribe\", \"params\":[\"ESP8266\"]}";
   String payload = http_post( url_pool, str_json_post );
   Serial.println();
-  Serial.print("poolGetJob(): ");
-  Serial.println(payload);
+  #ifdef ddebug2
+    Serial.print("poolGetJob(): ");
+    Serial.println(payload);
+  #endif
   if ( payload == "" ) {
     delay(2000);
     return false;
@@ -216,10 +224,12 @@ boolean poolGetJob(){
   Serial.print( nonce );
   Serial.print( " to ");
   Serial.println( nonceLimit );
-  Serial.print( "last_block: ");
-  Serial.println( str_last_block );
-  Serial.print( "target: ");
-  Serial.println( str_target ); 
+  #ifdef ddebug2
+    Serial.print( "last_block: ");
+    Serial.println( str_last_block );
+    Serial.print( "target: ");
+    Serial.println( str_target ); 
+  #endif
   return true;
 }
 
@@ -232,8 +242,10 @@ boolean poolLogin( boolean force ) {
   if (!poolConnected){
     String str_json_post = "{\"id\":null, \"method\": \"mining.authorize\", \"params\":[\""+siriAddress+"\"]}";
     String payload = http_post( url_pool, str_json_post );
-    Serial.print("poolLogin(): ");
-    Serial.println(payload);
+    #ifdef ddebug2
+      Serial.print("poolLogin(): ");
+      Serial.println(payload);
+    #endif  
     
     if ( payload == "" ) {
       delay(3000);
@@ -266,8 +278,10 @@ void poolSubmitJob(unsigned char* prooff, uint64_t non){
   Serial.print("str_json_post: ");
   Serial.println(str_json_post);
   String payload = http_post( url_pool, str_json_post );
-  Serial.print("poolSubmitJob(): ");
-  Serial.println(payload);
+  #ifdef ddebug2
+    Serial.print("poolSubmitJob(): ");
+    Serial.println(payload);
+  #endif  
 }
 
 /* Conecta com wifi */
@@ -295,14 +309,10 @@ void SetupWifi() {
 /* Retorna http/post */
 String http_post( String url_post, String data_post ) {
   String ret = "";
-  boolean http_begin = false;  
+  boolean http_begin = false;
+  WiFiClient client;
   HTTPClient http;
-  #if defined(ARDUINO_ARCH_ESP32)
-    http_begin = http.begin(url_post);
-  #else
-    WiFiClient client;
-    http_begin = http.begin(client, url_post);
-  #endif  
+  http_begin = http.begin(client, url_post);
   if (http_begin){
     http.addHeader("Content-Type", "application/json");
     yield();
