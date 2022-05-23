@@ -13,7 +13,11 @@
   #include <ESP8266HTTPClient.h>  
 #endif  
 #include "sph_keccak.h"
-
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ESP8266)
+  #if (F_CPU < 160000000L)
+    #error "Change CPU Frequency to 160MHZ"
+  #endif  
+#endif  
 #ifndef LED_BUILTIN
   #define LED_BUILTIN 2
 #endif
@@ -37,7 +41,6 @@ const char* PASSWORD = "88999448494";
 
 /* pool url */
 const String url_pool = "http://siricoinpool.000webhostapp.com/";
-
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Do not modify from here -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 /* Public variables */
@@ -64,13 +67,13 @@ void setup() {
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, LED_ON );
 
-  /* Inicia porta serial para debug */
+  /* Start serial port for debug */
   Serial.begin(115200);
   delay(1000);
   Serial.flush();
   Serial.println();
   
-  /* Conecta com a internet por wifi */
+  /* connect with wifi */
   SetupWifi();
 
   /* Decode rewardsRecipient to b_rewardsRecipient*/
@@ -79,7 +82,7 @@ void setup() {
     b_rewardsRecipient[j] = ((((siriAddress[i] & 0x1F) + 9) % 25) << 4) + ((siriAddress[i + 1] & 0x1F) + 9) % 25;
   }
 
-  /* Calcula valor de b_messagesHash */
+  /* Calculate b_messagesHash */
   sph_keccak256_context ctx;
   sph_keccak256_init(&ctx);
   sph_keccak256(&ctx, messages, sizeof(messages));
@@ -149,14 +152,11 @@ void loop() {
 
   /* debug */
   float elapsed_time_s = (float)elapsed_time / 1000000.0f;
-  uint64_t calcs = nonce - start_nonce;
+  uint32_t calcs = (uint32_t)(nonce - start_nonce) * 2;
   Serial.print("Hashrate: ");
-  Serial.print(formatHashrate((float)(calcs * 2 ) / elapsed_time_s));
+  Serial.print(formatHashrate((float)(calcs) / elapsed_time_s));
   Serial.print(", worked " + String(elapsed_time_s) + " seconds");
-  #if defined(ARDUINO_ARCH_ESP32)
-  #else
-    Serial.print(", "  + String(calcs) + " calculations");
-  #endif
+  Serial.print(", "  + String(calcs) + " calculations");
   Serial.println();
 }
 
@@ -172,6 +172,15 @@ bool max_micros_elapsed(unsigned long current, unsigned long max_elapsed) {
 }
 
 boolean poolGetJob(){
+  static uint8_t errorCount = 0;
+  
+  if (errorCount > 10 ) {
+    delay(2000);
+    poolLogin( true );
+    errorCount = 0;
+    return false;
+  }
+  
   String str_json_post = "{\"id\":" + String(miner_id) + ", \"method\": \"mining.subscribe\", \"params\":[\"ESP8266\"]}";
   String payload = http_post( url_pool, str_json_post );
   Serial.println();
@@ -179,20 +188,29 @@ boolean poolGetJob(){
     Serial.print("poolGetJob(): ");
     Serial.println(payload);
   #endif
+  
   if ( payload == "" ) {
+    errorCount++;
     delay(2000);
     return false;
-  }  
+  }    
 
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, payload);  
+  if (!doc.containsKey("params")){
+    errorCount++;
+    delay(2000);
+    return false;
+  }
+  errorCount = 0;
+  
+  job_id = doc["params"][0].as<unsigned long>();
   str_difficulty = doc["params"][6].as<String>();
   str_last_block = doc["params"][1].as<String>();
   str_target = doc["params"][2].as<String>();
   time_stamp = doc["params"][7].as<unsigned long>();
   nonce = doc["params"][3].as<unsigned long>();
-  nonceLimit = doc["params"][4].as<unsigned long>();
-  job_id = doc["params"][0].as<unsigned long>();
+  nonceLimit = doc["params"][4].as<unsigned long>();  
   
   str_last_block = str_last_block.substring(2);
   size_last_block = str_last_block.length() / 2;
@@ -247,10 +265,10 @@ boolean poolLogin( boolean force ) {
       Serial.println(payload);
     #endif  
     
-    if ( payload == "" ) {
+    if ( payload == "" ) {      
       delay(3000);
       return false;
-    }
+    }    
      
     /* Decodifica dados json */
     DynamicJsonDocument doc(1024);
@@ -316,15 +334,18 @@ String http_post( String url_post, String data_post ) {
   if (http_begin){
     http.addHeader("Content-Type", "application/json");
     yield();
-    if (http.POST(data_post) == HTTP_CODE_OK) {
+    int httpCode = http.POST(data_post);
+    if ( httpCode == HTTP_CODE_OK) {
       ret = http.getString();
+    } else {
+      Serial.println(http.errorToString(httpCode));
     }
     http.end();
   }
   return ret;
 }
 
-/* Calcula proof */
+/* Calculate proof */
 void proofOfWork(unsigned char* b, uint64_t n, unsigned char* result) {
   uint8_t temp_uint256[32];
   memset(temp_uint256, 0, 32);
@@ -339,7 +360,7 @@ void proofOfWork(unsigned char* b, uint64_t n, unsigned char* result) {
   sph_keccak256_close(&ctx, result);
 }
 
-/* Calcula bRoot */
+/* Calculate bRoot */
 void beaconRoot(unsigned char* result) {
 
   uint8_t temp_uint256[32];
@@ -359,7 +380,7 @@ void beaconRoot(unsigned char* result) {
 
 }
 
-/* Formata hashrate */
+/* Format hashrate */
 String formatHashrate(float hashrate) {
   String ret = "";
   if (hashrate < 1000) {
@@ -375,7 +396,7 @@ String formatHashrate(float hashrate) {
 }
 
 
-/* Converte bytes para uint64_t */
+/* bytes to uint64_t */
 uint64_t hashToUint64( const unsigned char* d ) {
   uint64_t u = (uint64_t)d[0] << 56;
   u += (uint64_t)d[1] << 48;
@@ -388,7 +409,7 @@ uint64_t hashToUint64( const unsigned char* d ) {
   return u;
 }
 
-/* Converte bytes para string no formato HEX */
+/* bytes to HexString */
 String toHEX( const unsigned char *d, size_t n ) {
   String r = "";
   while (n--) {
