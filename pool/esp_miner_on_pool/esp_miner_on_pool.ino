@@ -28,7 +28,7 @@
   #define LED_ON LOW
 #endif
 
-//#define ddebug2 
+#define ddebug2 
 
 /* SiriCoin Address */
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
@@ -52,7 +52,6 @@ uint32_t miner_id = 0;
 uint64_t ui64_target = 0;
 uint64_t nonce = 0;
 uint64_t nonceLimit = 0;
-uint64_t nonce2 = 0;
 uint32_t time_stamp = 0;
 uint32_t job_id = 0;
 unsigned char last_block[32];
@@ -110,34 +109,28 @@ void loop() {
   unsigned char beacon_root[32];
   beaconRoot(beacon_root);
   
-  /* Start mining */  
-  #if defined(ARDUINO_ARCH_ESP32)
-    nonce2 = (uint64_t)esp_random();
-  #else
-    nonce2 = (uint64_t)os_random();
-  #endif
   uint64_t start_nonce = nonce;  
   unsigned long elapsed_time = 0;
   unsigned char proof[32];  
   unsigned long start_time = micros();
   max_micros_elapsed(start_time, 0);
   while ( nonce < nonceLimit ) {
-
-    nonce++;    
+    
     proofOfWork(beacon_root, nonce, proof);
     if ( hashToUint64(proof) < ui64_target ) {
       elapsed_time = micros() - start_time;      
       poolSubmitJob(proof,nonce);
       break;
     }
+    nonce++;
 
-    nonce2++;
-    proofOfWork(beacon_root, nonce2, proof);
+    proofOfWork(beacon_root, nonceLimit, proof);
     if ( hashToUint64(proof) < ui64_target ) {
       elapsed_time = micros() - start_time;
-      poolSubmitJob(proof, nonce2);
+      poolSubmitJob(proof, nonceLimit);
       break;
     }
+    nonceLimit--;
 
     /* reset do wdt */
     if (max_micros_elapsed(micros(), 1000000)){
