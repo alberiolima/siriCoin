@@ -1,15 +1,24 @@
 /*
-  ESP8266 mining on pool for SiriCoin
+  ESP8266/ESP32 mining on pool for SiriCoin
   Developed by Albério Lima (https://github.com/alberiolima/)
   05-2022 Brazil
 */
 
 #include <ArduinoJson.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>  
+#if defined(ARDUINO_ARCH_ESP32)
+  #include <WiFi.h>
+  #include <HTTPClient.h>  
+#else
+  #include <ESP8266WiFi.h>
+  #include <ESP8266HTTPClient.h>  
+#endif  
 #include "sph_keccak.h"
 
-#define LED_ON LOW
+#if defined(ARDUINO_ARCH_ESP32)
+  #define LED_ON HIGH
+#else
+  #define LED_ON LOW
+#endif
 
 /* SiriCoin Address */
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
@@ -93,7 +102,11 @@ void loop() {
   beaconRoot(beacon_root);
   
   /* Start mining */  
-  nonce2 = (uint64_t)os_random();
+  #if defined(ARDUINO_ARCH_ESP32)
+    nonce2 = (uint64_t)esp_random();
+  #else
+    nonce2 = (uint64_t)os_random();
+  #endif
   uint64_t start_nonce = nonce;  
   unsigned long elapsed_time = 0;
   unsigned char proof[32];  
@@ -133,7 +146,12 @@ void loop() {
   uint64_t calcs = nonce - start_nonce;
   Serial.print("Hashrate: ");
   Serial.print(formatHashrate((float)(calcs * 2 ) / elapsed_time_s));
-  Serial.println(", worked " + String(elapsed_time_s) + " seconds, "  + String(calcs) + " calculations");
+  Serial.print(", worked " + String(elapsed_time_s) + " seconds");
+  #if defined(ARDUINO_ARCH_ESP32)
+  #else
+    Serial.print(", "  + String(calcs) + " calculations");
+  #endif
+  Serial.println();
 }
 
 
@@ -277,10 +295,14 @@ void SetupWifi() {
 /* Retorna http/post */
 String http_post( String url_post, String data_post ) {
   String ret = "";
-  boolean http_begin = false;
-  WiFiClient client;
+  boolean http_begin = false;  
   HTTPClient http;
-  http_begin = http.begin(client, url_post);
+  #if defined(ARDUINO_ARCH_ESP32)
+    http_begin = http.begin(url_post);
+  #else
+    WiFiClient client;
+    http_begin = http.begin(client, url_post);
+  #endif  
   if (http_begin){
     http.addHeader("Content-Type", "application/json");
     yield();
