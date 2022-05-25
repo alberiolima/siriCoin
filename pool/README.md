@@ -1,3 +1,4 @@
 # siriCoin
 
-url_pool = "http://siricoinpool.000webhostapp.com/"
+pool address
+http://siricoin.cu.ma/

@@ -3,6 +3,9 @@
   Developed by Albério Lima 
   https://github.com/alberiolima
   05-2022 Brazil
+
+  Serial 115200 baud
+  
 */
 #include <ArduinoJson.h>
 #if defined(ARDUINO_ARCH_ESP32)
@@ -40,7 +43,8 @@ const char* PASSWORD = "88999448494";
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-    Advanced Settings   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 /* pool url */
-const String url_pool = "http://siricoinpool.000webhostapp.com/";
+const String url_pool = "http://siricoin.cu.ma/";
+
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Do not modify from here -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 /* Public variables */
