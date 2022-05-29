@@ -1,10 +1,13 @@
 /*
+  !!!TEST VERSION (for testers)!!!
   ESP8266/ESP32 mining on pool for SiriCoin
   Developed by Albério Lima 
   https://github.com/alberiolima
   05-2022 Brazil
 
   Serial 115200 baud
+  LED blink 1x job received
+  LED blink 2x error
   
 */
 #include <ArduinoJson.h>
@@ -37,13 +40,14 @@
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
 
 /* wifi settings */
-const char* SSID = "ridimuim";
-const char* PASSWORD = "88999448494";
+const char* SSID = "brisa-448561";
+const char* PASSWORD = "9xmkuiw1";
 
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-    Advanced Settings   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 /* pool url */
 const String url_pool = "http://siricoin.cu.ma/";
+//const String url_pool = "http://192.168.1.30/coin/pool/"; //local test
 
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Do not modify from here -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
@@ -98,16 +102,18 @@ void loop() {
   
   /* login */
   if (!poolLogin(false)){
+    blink_led(2);
     return;
   }
   
   /* job request */
   if (!poolGetJob()) {
+    blink_led(2);
     return;
   }
   
   /* blink - job received */
-  blink_led();
+  blink_led(1);
 
   /* Create beaconRoot */
   unsigned char beacon_root[32];
@@ -419,8 +425,11 @@ String toHEX( const unsigned char *d, size_t n ) {
   return r;
 }
 
-void blink_led() {
-  digitalWrite( LED_BUILTIN, LED_ON );
-  delay(80);
-  digitalWrite( LED_BUILTIN, !LED_ON );
+void blink_led( uint8_t c) {
+  while (c--) {
+    digitalWrite( LED_BUILTIN, LED_ON );
+    delay(50);
+    digitalWrite( LED_BUILTIN, !LED_ON );
+    delay(80);
+  }
 }
