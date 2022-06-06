@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SiriCoin pool</title>
+</head>
+<body style="font-size:12px; font-family:'Courier New'">
+
+<h1>POOL DOC !!!TEST VERSION (for testers)!!!</h1>
+<p>
+Developed by Albério Lima<br>
+<a href="https://github.com/alberiolima/siriCoin/tree/main/pool">https://github.com/alberiolima/siriCoin/tree/main/pool</a><br>
+05-2022 Brazil<br>
+<p>
+<a href="status.php">Status</a>
+<a href="actives_ids.php">Actives</a>
+<a href="mined.php">Mined</a>
+</p>
+<hr>
+<h2>login</h2>
+{"id":null, "method": "mining.authorize", "params":[siricoin_address]}<br>
+<p>
+<b>Test:</b><br>
+curl -d '{"id":null, "method": "mining.authorize", "params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"]}' -H "Content-Type: application/json" -X POST http://siricoin.cu.ma/<br>
+</p>
+<b>response:</b><br> {"id":1653241124,"result":true} //login ok, return login_id
+<hr>
+<h2>get job</h2>
+{"id":login_id,"method":"mining.subscribe","params":[miner_type]}<br><br>
+<b>Test:</b><br>
+curl -d '{"id":"1653241124","method":"mining.subscribe","params":["ESP8266"]}' -H "Content-Type: application/json" -X POST http://siricoin.cu.ma/<br><br>
+<b>response:</b><br> {"id":1653241124,"method":"mining.notify","params":[4502,"0x00000000155ccc427b82da39bfa9384cb83b6c6bc19bb621f1dd858258a6a0b0","0x256f345a06382a000000000000000000000000000000000000000000",99284717,99372338,"0.00",29371696779.50247,"1653251618",false]}<br><br>
+<b>response params:</b><br>
+job_id: 4502<br>
+lastBlockHash: 0x00000000155ccc427b82da39bfa9384cb83b6c6bc19bb621f1dd858258a6a0b0<br>
+target: 0x256f345a06382a000000000000000000000000000000000000000000<br>
+nonce initial: 99284717<br>
+nonce final: 99372338<br>
+BLOCK_VERSION: 0.00<br>
+difficulty: 29371696779.50247<br>
+time_stamp: 1653251618<br>
+false: (not used)<br>
+<hr>
+<h2>submit</h2>
+{"id":login_id,"method":"mining.submit","params":[siricoin_address,job_id,proof,time_stamp,nonce]}<br><br>
+<b>Test:</b><br>
+curl -d '{"id":"1653241124","method":"mining.submit","params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674","4502","0x00",1653245118,00001]}' -H "Content-Type: application/json" -X http://siricoin.cu.ma/
+</p>
+<p>.</p>
+</body>
+</html>
