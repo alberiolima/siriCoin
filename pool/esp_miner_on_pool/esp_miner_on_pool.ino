@@ -46,8 +46,8 @@ const char* PASSWORD = "9xmkuiw1";
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-    Advanced Settings   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 /* pool url */
-const String url_pool = "http://siricoin.cu.ma/";
-//const String url_pool = "http://192.168.1.30/coin/pool/"; //local test
+//const String url_pool = "http://siricoin.cu.ma/";
+const String url_pool = "http://168.138.151.204/pool/";
 
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Do not modify from here -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
@@ -68,6 +68,8 @@ unsigned char target[32];
 size_t size_target = 32;
 unsigned char b_messagesHash[32];
 unsigned char b_rewardsRecipient[20];
+
+boolean isTCPmining = true;
 
 void setup() {
   
@@ -163,15 +165,39 @@ void loop() {
   Serial.println();
 }
 
-
-bool max_micros_elapsed(unsigned long current, unsigned long max_elapsed) {
-  static unsigned long _start = 0;
-
-  if ((current - _start) > max_elapsed) {
-    _start = current;
-    return true;
+/* login - mining.authorize */
+boolean poolLogin( boolean force ) {
+  static boolean poolConnected = false;
+  if (force){
+    poolConnected = false;
   }
-  return false;
+  if (!poolConnected){
+    String str_json_post = "{\"id\":null, \"method\": \"mining.authorize\", \"params\":[\""+siriAddress+"\"]}";
+    String payload = http_post( url_pool, str_json_post );
+    #ifdef ddebug2
+      Serial.print("poolLogin(): ");
+      Serial.println(payload);
+    #endif  
+    
+    if ( payload == "" ) {      
+      delay(3000);
+      return false;
+    }    
+     
+    /* Decodifica dados json */
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, payload);
+    boolean j_result = doc["result"].as<boolean>();
+    if (j_result){
+      unsigned long j_id = doc["id"].as<unsigned long>();
+      if (j_id > 0 ){
+        miner_id = (uint32_t)j_id;
+        poolConnected = true;
+      }
+    }
+    
+  }
+  return poolConnected;
 }
 
 boolean poolGetJob(){
@@ -254,41 +280,6 @@ boolean poolGetJob(){
   return true;
 }
 
-/* login - mining.authorize */
-boolean poolLogin( boolean force ) {
-  static boolean poolConnected = false;
-  if (force){
-    poolConnected = false;
-  }
-  if (!poolConnected){
-    String str_json_post = "{\"id\":null, \"method\": \"mining.authorize\", \"params\":[\""+siriAddress+"\"]}";
-    String payload = http_post( url_pool, str_json_post );
-    #ifdef ddebug2
-      Serial.print("poolLogin(): ");
-      Serial.println(payload);
-    #endif  
-    
-    if ( payload == "" ) {      
-      delay(3000);
-      return false;
-    }    
-     
-    /* Decodifica dados json */
-    DynamicJsonDocument doc(1024);
-    deserializeJson(doc, payload);
-    boolean j_result = doc["result"].as<boolean>();
-    if (j_result){
-      unsigned long j_id = doc["id"].as<unsigned long>();
-      if (j_id > 0 ){
-        miner_id = (uint32_t)j_id;
-        poolConnected = true;
-      }
-    }
-    
-  }
-  return poolConnected;
-}
-
 /* mining.submit */
 void poolSubmitJob(unsigned char* prooff, uint64_t non){
   char buf_non[1 + 8 * sizeof(uint64_t)];
@@ -303,6 +294,16 @@ void poolSubmitJob(unsigned char* prooff, uint64_t non){
     Serial.print("poolSubmitJob(): ");
     Serial.println(payload);
   #endif  
+}
+
+bool max_micros_elapsed(unsigned long current, unsigned long max_elapsed) {
+  static unsigned long _start = 0;
+
+  if ((current - _start) > max_elapsed) {
+    _start = current;
+    return true;
+  }
+  return false;
 }
 
 /* Conecta com wifi */
