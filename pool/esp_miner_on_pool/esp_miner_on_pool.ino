@@ -207,6 +207,8 @@ boolean poolLogin( boolean force ) {
         miner_id = (uint32_t)j_id;
         poolConnected = true;
       }
+    } else {
+      Serial.println("login error");
     }
     
   }
