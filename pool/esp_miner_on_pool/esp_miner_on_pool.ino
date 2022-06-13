@@ -313,8 +313,10 @@ void poolSubmitJob(unsigned char* prooff, uint64_t non){
   String str_nonce = String(buf_non);
   String str_proof = toHEX(prooff, 32);
   String str_json_post = "{\"id\":" + String(miner_id) + ", \"method\": \"mining.submit\", \"params\":[\""+siriAddress+"\","+String(job_id)+",\"0x"+str_proof+"\","+String(time_stamp)+","+str_nonce+"]}";
-  Serial.print("str_json_post: ");
-  Serial.println(str_json_post);
+  #ifdef ddebug2
+    Serial.print("str_json_post: ");
+    Serial.println(str_json_post);
+  #endif
   String payload = http_post( url_pool, str_json_post );
 
   DynamicJsonDocument doc(1024);
@@ -407,6 +409,10 @@ String http_post( String url_post, String data_post ) {
 void proofOfWork(unsigned char* b, uint64_t n, unsigned char* result) {
   uint8_t temp_uint256[32];
   memset(temp_uint256, 0, 32);
+  temp_uint256[24] = (uint8_t)(n >> 56);
+  temp_uint256[25] = (uint8_t)(n >> 48);
+  temp_uint256[26] = (uint8_t)(n >> 40);
+  temp_uint256[27] = (uint8_t)(n >> 32);
   temp_uint256[28] = (uint8_t)(n >> 24);
   temp_uint256[29] = (uint8_t)(n >> 16);
   temp_uint256[30] = (uint8_t)(n >> 8);
