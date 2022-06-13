@@ -34,7 +34,7 @@
   #define LED_ON LOW
 #endif
 
-#define ddebug2 
+//#define ddebug2 
 
 /* SiriCoin Address */
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
@@ -169,11 +169,11 @@ void loop() {
   Serial.println();
   Serial.print( "Balance: ");
   Serial.print( balance );
-  Serial.print( " jobCount: ");
+  Serial.print( ", jobCount: ");
   Serial.print( jobCount );
-  Serial.print( " mined_blocks: ");
+  Serial.print( ", mined_blocks: ");
   Serial.print( mined_blocks );
-  Serial.print( " recused_blocks: ");
+  Serial.print( ", recused_blocks: ");
   Serial.print( recused_blocks );
   Serial.println();
 }
@@ -337,16 +337,16 @@ void poolSubmitJob(unsigned char* prooff, uint64_t non){
 void poolUpdateBalance(){
   String str_json_post = "{\"id\":" + String(miner_id) + ", \"method\": \"mining.balance\", \"params\":[\""+siriAddress+"\"]}";
   #ifdef ddebug2
-    //Serial.print("str_json_post: ");
-    //Serial.println(str_json_post);
+    Serial.print("str_json_post: ");
+    Serial.println(str_json_post);
   #endif
   String payload = http_post( url_pool, str_json_post );
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, payload);  
   balance = doc["result"].as<float>();
   #ifdef ddebug2
-    //Serial.print("poolUpdateBalance(): ");
-    //Serial.println(payload);
+    Serial.print("poolUpdateBalance(): ");
+    Serial.println(payload);
   #endif
 }
 
