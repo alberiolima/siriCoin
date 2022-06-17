@@ -34,7 +34,7 @@
   #define LED_ON LOW
 #endif
 
-//#define ddebug2 
+#define ddebug2
 
 /* SiriCoin Address */
 const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
@@ -48,6 +48,8 @@ const char* PASSWORD = "9xmkuiw1";
 /* pool url */
 //const String url_pool = "http://siricoin.cu.ma/";
 const String url_pool = "http://168.138.151.204/pool/";
+//const String url_pool = "http://168.138.151.204/poolsiri/";
+
 
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- Do not modify from here -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
@@ -56,6 +58,7 @@ const char* messages = "null";
 String str_difficulty = "";
 String str_target = "";
 String str_last_block = "";
+String str_siriPoolAddress = "";
 uint32_t miner_id = 0;
 uint64_t ui64_target = 0;
 uint64_t nonce = 0;
@@ -67,12 +70,11 @@ size_t size_last_block = 32;
 unsigned char target[32];
 size_t size_target = 32;
 unsigned char b_messagesHash[32];
-unsigned char b_rewardsRecipient[20];
+unsigned char b_rewardsPool[20];
 uint32_t mined_blocks = 0;
 uint32_t recused_blocks = 0;
 uint32_t jobCount = 0;
 float balance = 0.0f;
-boolean isTCPmining = true;
 
 void setup() {
   
@@ -88,11 +90,7 @@ void setup() {
   /* connect with wifi */
   SetupWifi();
 
-  /* Decode rewardsRecipient to b_rewardsRecipient*/
-  memset(b_rewardsRecipient, 0, 20);
-  for (uint8_t i = 2, j = 0; j < sizeof(b_rewardsRecipient); i += 2, j++) {
-    b_rewardsRecipient[j] = ((((siriAddress[i] & 0x1F) + 9) % 25) << 4) + ((siriAddress[i + 1] & 0x1F) + 9) % 25;
-  }
+  
 
   /* Calculate b_messagesHash */
   sph_keccak256_context ctx;
@@ -249,9 +247,10 @@ boolean poolGetJob(){
     delay(2000);
     return false;
   }
-  
+
+  nonce = doc["params"][3].as<unsigned long long>();
   nonceLimit = doc["params"][4].as<unsigned long long>();  
-  if (nonceLimit < 1 ) {
+  if ((nonceLimit < 1 )||(nonce<1)) {
     errorCount++;
     delay(2000);
     return false;
@@ -263,8 +262,22 @@ boolean poolGetJob(){
   str_last_block = doc["params"][1].as<String>();
   str_target = doc["params"][2].as<String>();
   time_stamp = doc["params"][7].as<unsigned long>();
-  nonce = doc["params"][3].as<unsigned long long>();
+  str_siriPoolAddress = doc["params"][9].as<String>();
   
+  if ( str_siriPoolAddress == "" ) {
+    str_siriPoolAddress = siriAddress;
+  }
+  
+  #ifdef ddebug2
+    Serial.print("str_siriPoolAddress : ");
+    Serial.println(str_siriPoolAddress);
+  #endif
+
+  /* Decode rewardsRecipient to b_rewardsRecipient*/
+  memset(b_rewardsPool, 0, 20);
+  for (uint8_t i = 2, j = 0; j < sizeof(b_rewardsPool); i += 2, j++) {
+    b_rewardsPool[j] = ((((str_siriPoolAddress[i] & 0x1F) + 9) % 25) << 4) + ((str_siriPoolAddress[i + 1] & 0x1F) + 9) % 25;
+  }
   
   str_last_block = str_last_block.substring(2);
   size_last_block = str_last_block.length() / 2;
@@ -441,7 +454,7 @@ void beaconRoot(unsigned char* result) {
   sph_keccak256(&ctx, last_block, size_last_block);
   sph_keccak256(&ctx, temp_uint256, 32);
   sph_keccak256(&ctx, b_messagesHash, sizeof(b_messagesHash));
-  sph_keccak256(&ctx, b_rewardsRecipient, sizeof(b_rewardsRecipient));
+  sph_keccak256(&ctx, b_rewardsPool, sizeof(b_rewardsPool));
   sph_keccak256_close(&ctx, result);
 
 }
