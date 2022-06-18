@@ -64,8 +64,7 @@ unsigned char b_rewardsPool[20];
 uint32_t mined_blocks = 0;
 uint32_t recused_blocks = 0;
 uint32_t jobCount = 0;
-float balance = 0.0f;
-boolean working = false;
+uint8_t working = 0;
 
 void TaskMining(void *parameter);
 
@@ -130,8 +129,10 @@ void loop() {
   /* blink - job received - start work */  
   blink_led(1);
   jobCount++;
-  working = true;
+  working = 1;
   while (working) {
+    /* wdt */
+    esp_task_wdt_reset();
     yield();
   }
     
@@ -144,20 +145,28 @@ void TaskMining(void *parameter) {
   uint64_t local_nonce = 0;
   uint64_t local_nonceLimit = 0; 
   uint64_t local_uint64_target = 0;
+  boolean minedBlock = false;
+  boolean showDebug = false;
+  unsigned long elapsed_time = 0;
+  unsigned char proof[32];  
+  unsigned long start_time = 0;
 
   Serial.print("Start core ");
   Serial.println(xPortGetCoreID());
   
-  /* Reiniciar wdt */
+  /* wdt */
   esp_task_wdt_add(NULL);
 
   /* Loop */
   for (;;) {
+    
+    /* wdt */
+    esp_task_wdt_reset();
    
     /* while start working */
-    while (!working) {
-      esp_task_wdt_reset();
-      delay(50);
+    while (!working) {            
+      delay(100);
+      continue;
     }
 
     /*  */
@@ -167,59 +176,74 @@ void TaskMining(void *parameter) {
     local_nonce = nonce + (uint64_t)xPortGetCoreID();
     local_nonceLimit = nonceLimit; 
     xSemaphoreGive(xMutex);
-    memset(uchar_nonce, 0, 32);    
-    
-    boolean debugJob = false;
-    unsigned long elapsed_time = 0;
-    unsigned char proof[32];  
-    unsigned long start_time = micros();
+    memset(uchar_nonce, 0, 32);
+
+    minedBlock = false;
+    showDebug = false;
+    elapsed_time = 0;    
+    start_time = micros();
     max_micros_elapsed(start_time, 0);
     while ((local_nonce < local_nonceLimit)&&(working)) {
     
       proofOfWork(local_uchar_bRoot, local_nonce, proof);
       if ( hashToUint64(proof) < local_uint64_target ) {
-        elapsed_time = micros() - start_time;        
+        elapsed_time = micros() - start_time;
+        minedBlock = true;
         break;
       }
       local_nonce += 2;
 
       /* reset do wdt */
       if (max_micros_elapsed(micros(), 1000000)){
+        esp_task_wdt_reset();
         yield();     
       }
     
     }
 
-    if (working) {
-      while ( xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE );
-      working = false;
-      xSemaphoreGive(xMutex);
-      
-      /* Mined block */
-      if (elapsed_time) {  
-        poolSubmitJob(proof,local_nonce);
-      } else {
-        elapsed_time = micros() - start_time;
-      }
+    if ( elapsed_time == 0 ) {
+      elapsed_time = micros() - start_time;
+    }
     
+    if (working == 1) {
+      showDebug = true;
+    }
+
+    /* Mined block */    
+    if (minedBlock) {
+      while ( xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE );
+      working = 2;
+      xSemaphoreGive(xMutex);
+      poolSubmitJob(proof,local_nonce);
+      showDebug = true;
+    }
+    
+    if (showDebug){
       /* debug */
       float elapsed_time_s = (float)elapsed_time / 1000000.0f;
-      uint32_t calcs = (uint32_t)(local_nonce - nonce);
+      uint64_t calcs = (local_nonce - nonce);
+      
       Serial.print("Hashrate: ");
       Serial.print(formatHashrate((float)(calcs) / elapsed_time_s));
       Serial.print(", worked " + String(elapsed_time_s) + " seconds");
-      Serial.print(", "  + String(calcs) + " calculations");
+      Serial.print(", "  + String((uint32_t)calcs) + " calculations");
       Serial.println();
-      Serial.print( "Balance: ");
-      Serial.print( balance );
-      Serial.print( ", jobCount: ");
+      Serial.print( "JobCount: ");
       Serial.print( jobCount );
       Serial.print( ", mined_blocks: ");
       Serial.print( mined_blocks );
       Serial.print( ", recused_blocks: ");
       Serial.print( recused_blocks );
+      if (minedBlock){
+        Serial.print(" >> MINED BLOCK <<");
+      }
       Serial.println();      
-    }    
+    }
+    if (working) {      
+      while ( xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE );
+      working = 0;
+      xSemaphoreGive(xMutex);
+    }
   }
 }
 
@@ -257,8 +281,6 @@ boolean poolLogin( boolean force ) {
     }
     
   }
-  
-  poolUpdateBalance();
   
   return poolConnected;
 }
@@ -358,8 +380,6 @@ boolean poolGetJob(){
     Serial.println( str_target ); 
   #endif
   
-  poolUpdateBalance();
-  
   return true;
 }
 
@@ -390,23 +410,6 @@ void poolSubmitJob(unsigned char* prooff, uint64_t non){
     Serial.println(payload);
   #endif  
 
-  poolUpdateBalance();
-}
-
-void poolUpdateBalance(){
-  String str_json_post = "{\"id\":" + String(miner_id) + ", \"method\": \"mining.balance\", \"params\":[\""+siriAddress+"\"]}";
-  #ifdef ddebug2
-    Serial.print("str_json_post: ");
-    Serial.println(str_json_post);
-  #endif
-  String payload = http_post( url_pool, str_json_post );
-  DynamicJsonDocument doc(1024);
-  deserializeJson(doc, payload);  
-  balance = doc["result"].as<float>();
-  #ifdef ddebug2
-    Serial.print("poolUpdateBalance(): ");
-    Serial.println(payload);
-  #endif
 }
 
 bool max_micros_elapsed(unsigned long current, unsigned long max_elapsed) {
