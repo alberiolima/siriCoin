@@ -74,7 +74,6 @@ unsigned char b_rewardsPool[20];
 uint32_t mined_blocks = 0;
 uint32_t recused_blocks = 0;
 uint32_t jobCount = 0;
-float balance = 0.0f;
 
 void setup() {
   
@@ -89,8 +88,6 @@ void setup() {
   
   /* connect with wifi */
   SetupWifi();
-
-  
 
   /* Calculate b_messagesHash */
   sph_keccak256_context ctx;
@@ -165,9 +162,7 @@ void loop() {
   Serial.print(", worked " + String(elapsed_time_s) + " seconds");
   Serial.print(", "  + String(calcs) + " calculations");
   Serial.println();
-  Serial.print( "Balance: ");
-  Serial.print( balance );
-  Serial.print( ", jobCount: ");
+  Serial.print( "JobCount: ");
   Serial.print( jobCount );
   Serial.print( ", mined_blocks: ");
   Serial.print( mined_blocks );
@@ -210,8 +205,6 @@ boolean poolLogin( boolean force ) {
     }
     
   }
-  
-  poolUpdateBalance();
   
   return poolConnected;
 }
@@ -316,8 +309,6 @@ boolean poolGetJob(){
     Serial.println( str_target ); 
   #endif
   
-  poolUpdateBalance();
-  
   return true;
 }
 
@@ -348,23 +339,6 @@ void poolSubmitJob(unsigned char* prooff, uint64_t non){
     Serial.println(payload);
   #endif  
 
-  poolUpdateBalance();
-}
-
-void poolUpdateBalance(){
-  String str_json_post = "{\"id\":" + String(miner_id) + ", \"method\": \"mining.balance\", \"params\":[\""+siriAddress+"\"]}";
-  #ifdef ddebug2
-    Serial.print("str_json_post: ");
-    Serial.println(str_json_post);
-  #endif
-  String payload = http_post( url_pool, str_json_post );
-  DynamicJsonDocument doc(1024);
-  deserializeJson(doc, payload);  
-  balance = doc["result"].as<float>();
-  #ifdef ddebug2
-    Serial.print("poolUpdateBalance(): ");
-    Serial.println(payload);
-  #endif
 }
 
 bool max_micros_elapsed(unsigned long current, unsigned long max_elapsed) {
