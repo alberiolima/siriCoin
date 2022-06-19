@@ -27,16 +27,21 @@
 
 //#define ddebug2
 
-/* SiriCoin Address */
-const String siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674";
+/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  USER SETTINGS (Edit as per your prefrence)  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
-/* wifi settings */
-const char* WIFI_SSID = "brisa-448561";
-const char* WIFI_PASSWORD = "9xmkuiw1";
+/* Replace this whole <YOUR SIRICOIN ADDRESS> with your actual siricoin address then save the file removing the < and > symbols too
+Then Based on your decision if you want a buzzer beep output you can define the buzzbeep variable to 1, if you dont need it just make it 0
+Next, fill in your wifi credentials as this is headless mining, ESP board can directly connect to a wifi and mine without your computer's support */
+
+const String siriAddress = "0x4D4279faB369Cc551FF1e8BECE01DC1dD2644794";
+int buzzbeep = 1;
+const char* WIFI_SSID = "ShreyasITB";
+const char* WIFI_PASSWORD = "air47169";
 
 /* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-    Advanced Settings   -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
 /* pool url */
+
 //const String url_pool = "http://siricoin.cu.ma/";
 const String url_pool = "http://168.138.151.204/pool/";
 
@@ -79,6 +84,13 @@ void setup() {
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, LED_ON );
 
+  if(buzzbeep == 1) {
+    pinMode( 15, OUTPUT);
+  };
+  if(buzzbeep == 0) {
+    Serial.print("Buzzer feature was turned off");
+  };
+  
   /* Start serial port for debug */
   Serial.begin(115200);
   delay(1000);
@@ -210,6 +222,11 @@ void TaskMining(void *parameter) {
     /* Mined block */    
     if (minedBlock) {      
       Serial.println(" >> MINED BLOCK <<");
+      digitalWrite( LED_BUILTIN, LED_ON );
+      digitalWrite(15, HIGH);
+      delay(1500);
+      digitalWrite( LED_BUILTIN, !LED_ON );
+      digitalWrite(15, LOW);
       poolSubmitJob(proof,local_nonce);      
     }
 
@@ -229,7 +246,12 @@ void TaskMining(void *parameter) {
       Serial.print( mined_blocks );
       Serial.print( ", recused_blocks: ");
       Serial.print( recused_blocks );      
-      Serial.println();      
+      Serial.println();
+      blink_led(1);
+      delay(100);
+      blink_led(1);
+      delay(10);
+      blink_led(1);
     }
   }
   
@@ -425,6 +447,11 @@ void SetupWifi() {
   Serial.println("Successfully connected to WiFi");
   Serial.println("Local IP address: " + WiFi.localIP().toString());
   Serial.println();
+  blink_led(1);
+  delay(10);
+  blink_led(1);
+  delay(10);
+  blink_led(1);
 }
 
 /* Retorna http/post */
@@ -532,8 +559,10 @@ String toHEX( const unsigned char *d, size_t n ) {
 void blink_led( uint8_t c) {
   while (c--) {
     digitalWrite( LED_BUILTIN, LED_ON );
+    digitalWrite(15, HIGH);
     delay(50);
     digitalWrite( LED_BUILTIN, !LED_ON );
+    digitalWrite(15, LOW);
     delay(80);
   }
 }
