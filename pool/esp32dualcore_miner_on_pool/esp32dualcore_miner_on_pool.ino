@@ -64,7 +64,7 @@ unsigned char b_rewardsPool[20];
 uint32_t mined_blocks = 0;
 uint32_t recused_blocks = 0;
 uint32_t jobCount = 0;
-uint8_t working = 0;
+boolean working = false;
 
 void TaskMining(void *parameter);
 
@@ -95,7 +95,7 @@ void setup() {
   sph_keccak256_close(&ctx, b_messagesHash);
 
   /* Start WDT */
-  esp_task_wdt_init(60, true);  // Init Watchdog timer
+  esp_task_wdt_init(120, true);  // Init Watchdog timer
 
   /* Create Semaphore */
   xMutex = xSemaphoreCreateMutex();
@@ -110,32 +110,7 @@ void setup() {
 }
 
 void loop() {
-  
-  /* login */
-  if (!poolLogin(false)){
-    blink_led(2);
-    return;
-  }
-  
-  /* job request */
-  if (!poolGetJob()) {
-    blink_led(2);
-    return;
-  }
-  
-  /* Create beaconRoot */  
-  beaconRoot(beacon_root);
-  
-  /* blink - job received - start work */  
-  blink_led(1);
-  jobCount++;
-  working = 1;
-  while (working) {
-    /* wdt */
-    esp_task_wdt_reset();
-    yield();
-  }
-    
+  vTaskDelete(NULL);
 }
 
 void TaskMining(void *parameter) {
@@ -150,44 +125,68 @@ void TaskMining(void *parameter) {
   unsigned long elapsed_time = 0;
   unsigned char proof[32];  
   unsigned long start_time = 0;
+  uint8_t coreN = xPortGetCoreID();
 
-  Serial.print("Start core ");
-  Serial.println(xPortGetCoreID());
-  
   /* wdt */
   esp_task_wdt_add(NULL);
 
-  /* Loop */
-  for (;;) {
-    
-    /* wdt */
-    esp_task_wdt_reset();
-   
-    /* while start working */
-    while (!working) {            
-      delay(100);
-      continue;
-    }
+  Serial.print("Start core ");
+  Serial.println(coreN);
+  while (true) {
 
-    /*  */
+    yield();
+    esp_task_wdt_reset();
+
+    if (coreN == 0 ) {
+   
+      /* login on pool */
+      if (!poolLogin(false)){        
+        blink_led(2);
+        continue;
+      }
+      
+      /* job request */
+      if (!poolGetJob()){
+        blink_led(2);
+        continue;
+      }
+
+      /* Create beaconRoot */  
+      beaconRoot(beacon_root);
+
+      /* blink - job received - start work */  
+      blink_led(1);
+      jobCount++;
+      
+    } else {
+      /* while to start working */
+      if (!working) {            
+        delay(100);
+        continue;
+      }
+    }
     while ( xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE );
     memcpy(local_uchar_bRoot, beacon_root, 32);
     local_uint64_target = ui64_target;
     local_nonce = nonce + (uint64_t)xPortGetCoreID();
     local_nonceLimit = nonceLimit; 
+    
+    /* Start mining */
+    if (xPortGetCoreID() == 0 ) {      
+      working = true;
+    }
     xSemaphoreGive(xMutex);
-    memset(uchar_nonce, 0, 32);
 
+    /* Start mining */
+    memset(uchar_nonce, 0, 32);
     minedBlock = false;
-    showDebug = false;
     elapsed_time = 0;    
     start_time = micros();
     max_micros_elapsed(start_time, 0);
     while ((local_nonce < local_nonceLimit)&&(working)) {
     
       proofOfWork(local_uchar_bRoot, local_nonce, proof);
-      if ( hashToUint64(proof) < local_uint64_target ) {
-        elapsed_time = micros() - start_time;
+      if ( hashToUint64(proof) < local_uint64_target ) {        
         minedBlock = true;
         break;
       }
@@ -200,25 +199,21 @@ void TaskMining(void *parameter) {
       }
     
     }
+    elapsed_time = micros() - start_time;    
 
-    if ( elapsed_time == 0 ) {
-      elapsed_time = micros() - start_time;
-    }
-    
-    if (working == 1) {
-      showDebug = true;
-    }
-
-    /* Mined block */    
-    if (minedBlock) {
+    if (working){
       while ( xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE );
-      working = 2;
+      working = false;
       xSemaphoreGive(xMutex);
-      poolSubmitJob(proof,local_nonce);
-      showDebug = true;
     }
     
-    if (showDebug){
+    /* Mined block */    
+    if (minedBlock) {      
+      Serial.println(" >> MINED BLOCK <<");
+      poolSubmitJob(proof,local_nonce);      
+    }
+
+    if (coreN == 0){
       /* debug */
       float elapsed_time_s = (float)elapsed_time / 1000000.0f;
       uint64_t calcs = (local_nonce - nonce);
@@ -233,18 +228,11 @@ void TaskMining(void *parameter) {
       Serial.print( ", mined_blocks: ");
       Serial.print( mined_blocks );
       Serial.print( ", recused_blocks: ");
-      Serial.print( recused_blocks );
-      if (minedBlock){
-        Serial.print(" >> MINED BLOCK <<");
-      }
+      Serial.print( recused_blocks );      
       Serial.println();      
     }
-    if (working) {      
-      while ( xSemaphoreTake(xMutex, portMAX_DELAY) != pdTRUE );
-      working = 0;
-      xSemaphoreGive(xMutex);
-    }
   }
+  
 }
 
 /* login - mining.authorize */
