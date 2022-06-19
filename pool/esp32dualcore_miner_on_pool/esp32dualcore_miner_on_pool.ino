@@ -218,6 +218,7 @@ void TaskMining(void *parameter) {
     
     /* Mined block */    
     if (minedBlock) {      
+      poolSubmitJob(proof,local_nonce);      
       Serial.println(" >> MINED BLOCK <<");
       digitalWrite( LED_BUILTIN, LED_ON );
       #ifdef PIN_BIZZER
@@ -227,8 +228,7 @@ void TaskMining(void *parameter) {
       digitalWrite( LED_BUILTIN, !LED_ON );
       #ifdef PIN_BIZZER
         digitalWrite(PIN_BIZZER, LOW);
-      #endif
-      poolSubmitJob(proof,local_nonce);      
+      #endif      
     }
 
     if (coreN == 0){
