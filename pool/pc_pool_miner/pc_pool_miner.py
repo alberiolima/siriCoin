@@ -7,7 +7,6 @@ from random import randrange
 
 siriAddress = "0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"
 url_pool = "http://168.138.151.204/poolsiri/"
-thread_count = 2
 
 #calculate messagesHash
 ctx_keccak = sha3.keccak_256()
@@ -24,10 +23,8 @@ def formatHashrate(hashrate):
     elif hashrate < 1000000000000:
         return f"{round(hashrate/1000000000, 2)}GH/s"
 
-def mine_pool(threadid):
-    #time.sleep(randrange(thread_count * 3))
-    time.sleep(threadid)
-    print("Starting thread", threadid)    
+def mine_pool():    
+    print("Starting")
     while True:    
         #login        
         login_data = {'id':'', 'method': 'mining.authorize', 'params': [siriAddress]}
@@ -40,7 +37,7 @@ def mine_pool(threadid):
         miner_id = login_result['id']    
         
         #print(login_data)
-        print("Thread", threadid, "login:", login_result)
+        print("login:", login_result)
         while True:
             #request job
             req_job_data = {"id": miner_id, "method": "mining.subscribe", "params": ["PC"]}
@@ -63,7 +60,7 @@ def mine_pool(threadid):
             timestamp = int(req_job_params[7])
             poolSiriAddress = req_job_params[9]
             #print(poolSiriAddress)
-            print("Thread", threadid,"job", job_id, "timestamp:", timestamp, "nonce", nonce, "to", nonce_final )
+            print("Job", job_id, "timestamp:", timestamp, "nonce", nonce, "to", nonce_final )
         
             #calculate bRoot
             ctx_keccak = sha3.keccak_256()
@@ -114,13 +111,8 @@ def mine_pool(threadid):
             calculations = (nonce - start_nonce) * 2
             elapsed_time_s = time.time() - start_time
             hr = calculations / elapsed_time_s
-            print("Thread", threadid, "Hashrate:", formatHashrate(hr), "Time (secs):", round(elapsed_time_s,3), "calculations:", calculations )
+            print("Hashrate:", formatHashrate(hr), "Time (secs):", round(elapsed_time_s,3), "calculations:", calculations )
 
 if __name__ == "__main__":
     print("pool        :", siriAddress)
-    print("siri Address:", url_pool)
-    if (thread_count > 1):
-        for threadid in range(0,thread_count):
-            Thread(target=mine_pool,args=[threadid]).start()
-    else:
-        mine_pool(0)
+    mine_pool()
