@@ -20,14 +20,14 @@ Developed by Albério Lima<br>
 {"id":null, "method": "mining.authorize", "params":[siricoin_address]}<br>
 <p>
 <b>Test:</b><br>
-curl -d '{"id":null, "method": "mining.authorize", "params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"]}' -H "Content-Type: application/json" -X POST http://siricoin.cu.ma/<br>
+curl -d '{"id":null, "method": "mining.authorize", "params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"]}' -H "Content-Type: application/json" -X POST http://168.138.151.204/pool/<br>
 </p>
 <b>response:</b><br> {"id":1653241124,"result":true} //login ok, return login_id
 <hr>
 <h2>get job</h2>
 {"id":login_id,"method":"mining.subscribe","params":[miner_type]}<br><br>
 <b>Test:</b><br>
-curl -d '{"id":"1653241124","method":"mining.subscribe","params":["ESP8266"]}' -H "Content-Type: application/json" -X POST http://siricoin.cu.ma/<br><br>
+curl -d '{"id":"1653241124","method":"mining.subscribe","params":["ESP8266"]}' -H "Content-Type: application/json" -X POST http://168.138.151.204/pool/<br><br>
 <b>response:</b><br> {"id":1653241124,"method":"mining.notify","params":[4502,"0x00000000155ccc427b82da39bfa9384cb83b6c6bc19bb621f1dd858258a6a0b0","0x256f345a06382a000000000000000000000000000000000000000000",99284717,99372338,"0.00",29371696779.50247,"1653251618",false]}<br><br>
 <b>response params:</b><br>
 job_id: 4502<br>
@@ -43,8 +43,17 @@ false: (not used)<br>
 <h2>submit</h2>
 {"id":login_id,"method":"mining.submit","params":[siricoin_address,job_id,proof,time_stamp,nonce]}<br><br>
 <b>Test:</b><br>
-curl -d '{"id":"1653241124","method":"mining.submit","params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674","4502","0x00",1653245118,00001]}' -H "Content-Type: application/json" -X http://siricoin.cu.ma/
+curl -d '{"id":"1653241124","method":"mining.submit","params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674","4502","0x00",1653245118,00001]}' -H "Content-Type: application/json" -X http://168.138.151.204/pool/
 </p>
+<hr>
+<h2>balance</h2>
+{"id":login_id, "method": "mining.balance", "params":[siricoin_address]}<br>
+<p>
+<b>Test:</b><br>
+curl -d '{"id":1653241124, "method": "mining.balance", "params":["0x0E9b419F7Cd861bf86230b124229F9a1b6FF9674"]}' -H "Content-Type: application/json" -X POST http://168.138.151.204/pool/<br>
+</p>
+<b>response:</b><br> {"id":1653241124,"result":196} //login ok, return login_id
+<hr>
 <p>.</p>
 </body>
 </html>
